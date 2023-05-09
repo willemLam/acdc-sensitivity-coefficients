@@ -331,7 +331,7 @@ A77 = [dP_mag(idx.vscdc_pq,idx.vscdc_pq)];
 
 
 %% Assemble A
-Anew = [ A11 A12 A13 A14 A15 A16 A17; ...
+A = [ A11 A12 A13 A14 A15 A16 A17; ...
       A21 A22 A23 A24 A25 A26 A27; ...
       A31 A32 A33 A34 A35 A36 A37; ...
       A41 A42 A43 A44 A45 A46 A47; ...
@@ -432,7 +432,8 @@ for id_x = 1:length(idxCtrl)
                  5*sum( idxCtrl(id_x) == idx.vdc ) + ...
                  6*sum( idxCtrl(id_x) == idx.vscac_pq ) + ...
                  7*sum( idxCtrl(id_x) == idx.vscac_vq ) + ...
-                 8*sum( idxCtrl(id_x) == idx.vscdc_pq ); 
+                 8*sum( idxCtrl(id_x) == idx.vscdc_pq ) + ...
+                 9*sum( idxCtrl(id_x) == idx.vscdc_vq ); 
     for ctrl_var = 1:2
        
      T = tic;   
@@ -448,46 +449,41 @@ for id_x = 1:length(idxCtrl)
      %% V controlled nodes
      switch( node_type )
          case 1 % Slack node
-             if(ctrl_var == 1) % if X = |\bar{E}^{\phi}_k|
-                %K{id_x,2}{ctrl_var,1}(tmp_idx,nph) = exp(1i*angle(E(tmp_idx,1))); % complex
+             if (ctrl_var == 1) 
                 K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
-             else % if X = \angle(\bar{E}^{\phi}_k)
-                %K{id_x,2}{ctrl_var,1}(tmp_idx,nph) = 1i*E(tmp_idx,1); % complex
+             elseif (ctrl_var == 2) 
                 K{id_x,4}{ctrl_var,1}(tmp_idx,1) = 1; % angle
              end
-
-%          case 3 % PV node
-%              if(ctrl_var == 1) % if X = |\bar{E}^{\phi}_k|
-%                 %K{id_x,2}{ctrl_var,1}(tmp_idx,nph) = exp(1i*angle(E(tmp_idx,1))); % complex
-% %                 K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
-%              else % if X = \angle(\bar{E}^{\phi}_k)
-%                 %K{id_x,2}{ctrl_var,1}(tmp_idx,nph) = 1i*E(tmp_idx,1); % complex
-%                 K{id_x,3}{ctrl_var,1}(tmp_idx,1) = dP_mag(tmp_idx,tmp_idx); % angle
-%              end
-%          case 5 % Vdc node
-%              if(ctrl_var == 1) % if X = |\bar{E}^{\phi}_k|
-%                 %K{id_x,2}{ctrl_var,1}(tmp_idx,nph) = exp(1i*angle(E(tmp_idx,1))); % complex
-%                 K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
-%              else % if X = \angle(\bar{E}^{\phi}_k)
-%                 %K{id_x,2}{ctrl_var,1}(tmp_idx,nph) = 1i*E(tmp_idx,1); % complex
-%                 K{id_x,4}{ctrl_var,1}(tmp_idx,1) = 1; % angle
-%              end
-%              
-%          case 7 % vscdc_vq node
-%              if(ctrl_var == 1) % if X = |\bar{E}^{\phi}_m|
-%                 K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
-%              else % if X = P0^{\phi}_{0,m}
-%                 % Do nothing as derivative is zero
-%              end
-         otherwise % non-qv node
+             
+         case 3 % PV node
+             if(ctrl_var == 1) % P
+                % Do nothing as derivative is zero 
+             elseif (ctrl_var == 2) % magnitude V
+                K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
+             end
+             
+         case 5 % Vdc node
+             if (ctrl_var == 1)
+                K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
+             elseif (ctrl_var == 1)
+                 % Do nothing as derivative is zero
+             end
+             
+         case 9 % VSCdc_vq node
+             if (ctrl_var == 1) 
+                 K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
+             elseif (ctrl_var == 1) 
+                 % Do nothing as derivative is zero
+             end
+             
+         otherwise 
              % Do nothing as derivatives are all zeros.
      end
      
-     % Compute nodal voltage SCs for PQ & QV nodes
-     % Construct u(X)
+     %% Construct u(X)
       switch( node_type )
          case 1 % slack node
-             if(ctrl_var == 1) 
+             if (ctrl_var == 1) 
                 u1 = [- dP_mag(idx.pqac,tmp_idx);
                       - dQ_mag(idx.pqac,tmp_idx)];
                 u2 = [- dP_mag(idx.pvac,tmp_idx);
@@ -514,11 +510,11 @@ for id_x = 1:length(idxCtrl)
              end
              
           case 2 % pqac node
-             if(ctrl_var == 1) 
+             if (ctrl_var == 1) 
                 u1 = [-dV_mag(idx.pqac,tmp_idx);
                       zeros(length(idx.pqac),1)];
-                u2 = [zeros(length(idx.pqac),1);
-                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
@@ -529,8 +525,8 @@ for id_x = 1:length(idxCtrl)
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);                      
                       -dV_mag(idx.pqac,tmp_idx)];
-                u2 = [zeros(length(idx.pqac),1);
-                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
@@ -541,7 +537,7 @@ for id_x = 1:length(idxCtrl)
              end
              
           case 3 % pvac node
-             if(ctrl_var == 1) % if X = P0^{\phi}_{0,l}
+             if (ctrl_var == 1) % if X = P0^{\phi}_{0,l}
                 u1 = [zeros(length(idx.pqac),1);
                       zeros(length(idx.pqac),1)];
                 u2 = [-dV_mag(idx.pvac,tmp_idx);
@@ -553,7 +549,7 @@ for id_x = 1:length(idxCtrl)
                 u6 = [zeros(length(idx.vscac_vq),1);
                       zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];      
-             else % if X = Q0^{\phi}_{0,l}
+             elseif (ctrl_var == 2)
                 u1 = [zeros(length(idx.pqac),1);
                       zeros(length(idx.pqac),1)];
                 u2 = [zeros(length(idx.pvac),1);
@@ -565,104 +561,206 @@ for id_x = 1:length(idxCtrl)
                 u6 = [zeros(length(idx.vscac_vq),1);
                       zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];     
-             end   
+             end  
              
-          case 3 % vscac_vq node
-             if(ctrl_var == 1) % if X = P0^{\phi}_{0,m}
-                u1 = zeros(length(idx.pqac),1);
-                u2 = zeros(length(idx.pqac),1);
-                u3 = zeros(length(idx.vscac_vq),1);
-                u4 = zeros(length(idx.vscac_vq),1);
-                u4(tmp_idx == idx.vscac_vq,1) = -1;
-                u5 = zeros(length(idx.pdc),1);  
-                
-             else % if X = |\bar{E}^{\phi}_m|
-                u1 = zeros(length(idx.pqac),1);
-                u2 = zeros(length(idx.pqac),1);
-                u3 = zeros(length(idx.vscac_vq),1);
-                u4 = zeros(length(idx.vscac_vq),1);
-                u5 = zeros(length(idx.pdc),1);         
-             end   
-             
-          case 4 % vscdc_vq node
-             if(ctrl_var == 1) % if X = P0^{\phi}_{0,m}
+          case 4 % pdc mode
+              if (ctrl_var == 1) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [-dV_mag(idx.pdc,tmp_idx)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             elseif (ctrl_var == 2) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+              end
               
-                u1 = zeros(length(idx.pqac),1);
-                u2 = zeros(length(idx.pqac),1);
-                 
-                u3 = zeros(length(idx.vscac_vq),1);
-                tmp_1 = real(F_s)./repmat(abs(E_s).',[size(F,1) 1]); tmp_1 = tmp_1(idx.vscdc_vq,idx.vscdc_vq);
-                tmp_3 = sum(real(F_s),2)./abs(E_s); tmp_3 = tmp_3(idx.vscdc_vq);
-                tmp_4 = repmat(-diag(tmp_1) + -(tmp_3),[1,n_ph])';
-                u3(reshape(repmat(tmp_idx == idx.vscdc_vq,1,n_ph)',size(Fl,1),1),1) = tmp_4(:,tmp_idx - idx.vscdc_vq(1) +1);%.*[0;1;0];%tmp_idx-idx3ph.vscdc_vq(1)+1);                
-                
-                u4 = zeros(length(idx.vscac_vq),1);
-                
-                u5 = zeros(length(idx.vscdc_vq),1);
-                tmp_1 = real(F)./repmat(abs(E).',[size(F,1) 1]); tmp_1 = tmp_1(idx.pdc,idx.vscdc_vq);
-                tmp_3 = sum(real(F),2)./abs(E); tmp_3 = tmp_3(idx.pdc);
-                tmp_4 = -diag(tmp_1) + -tmp_3;
-                u5(tmp_idx == idx.vscdc_vq,1) = tmp_4(tmp_idx - idx.vscdc_vq(1) +1);%tmp_idx-idx3ph.vscdc_vq(1)+1);
-         
-             else % if X = |\bar{E}^{\phi}_m|
-                u1 = zeros(length(idx.pqac),1);
-                u2 = zeros(length(idx.pqac),1);
-                u3 = zeros(length(idx.vscac_vq),1);
-                u4 = zeros(length(idx.vscac_vq),1);
-                u5 = zeros(length(idx.pdc),1);         
-             end   
-
-          case 5 % pdc node
-             if(ctrl_var == 1) % if X = P0^{\phi}_{0,l}
-                u1 = zeros(length(idx.pqac),1);
-                u2 = zeros(length(idx.pqac),1);
-                u3 = zeros(length(idx.vscac_vq),1);
-                u4 = zeros(length(idx.vscac_vq),1);
-                u5 = zeros(length(idx.pdc),1);  
-                u5(tmp_idx == idx.pdc,1) = 1;  %Added -
-             else % if X = Q0^{\phi}_{0,l}
-                u1 = zeros(length(idx.pqac),1);
-                u2 = zeros(length(idx.pqac),1);
-                u3 = zeros(length(idx.vscac_vq),1);
-                u4 = zeros(length(idx.vscac_vq),1);
-                u5 = zeros(length(idx.pdc),1);     
-              end   
+          case 5 % vdc mode
+              if (ctrl_var == 1) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [-dP_mag(idx.vdc,tmp_idx)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             elseif (ctrl_var == 2) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+              end
+              
+          case 6 % vscac_pq node
+             if (ctrl_var == 1) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [-dV_mag(idx.vscac_pq,tmp_idx);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             elseif (ctrl_var == 2) 
+                u1 = [zeros(length(idx.pqac),1);                      
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      -dV_mag(idx.vscac_pq,tmp_idx)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             end
+             
+          case 7 % vscac_vq node
+              if (ctrl_var == 1) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [-dV_mag(idx.vscac_pq,tmp_idx);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             elseif (ctrl_var == 2) 
+                u1 = [zeros(length(idx.pqac),1);                      
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      -dV_mag(idx.vscac_pq,tmp_idx)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+              end
+             
+          case 8 % vscdc_pq mode
+             if (ctrl_var == 1) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [-dV_mag(idx.vscdc_pq,tmp_idx)];
+             elseif (ctrl_var == 2) 
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             end
+              
+          case 9 % vscdc_vq node
+              if (ctrl_var == 1) 
+                index_vsc_v = repmat(idx.vscdc_vq,1,n_ph)';
+                u1 = [zeros(length(idx.pqac),1);
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [-dP_mag(idx.pdc,tmp_idx)]; %might be off
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [-dP_mag(index_vsc_v,tmp_idx);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+             elseif (ctrl_var == 2) 
+                u1 = [zeros(length(idx.pqac),1);                      
+                      zeros(length(idx.pqac),1)];
+                u2 = [zeros(length(idx.pvac),1);
+                      zeros(length(idx.pvac),1)];
+                u3 = [zeros(length(idx.pdc),1)];
+                u4 = [zeros(length(idx.vdc),1)];
+                u5 = [zeros(length(idx.vscac_pq),1);
+                      zeros(length(idx.vscac_pq),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
+                u7 = [zeros(length(idx.vscdc_pq),1)];
+              end
+              
           otherwise % "error"
-              % Do nothing
+              warning('something is wrong, mate!')
       end    
      
-     if unblanced_3ph
-         u3 = b_inv4.*u3; %kron(eye(size(Fl,1)/nph),A_inv)*u3;
-         u4 = reshape(sum(reshape(u4,3,4)).*b_inv,12,1); %b_inv4.*u4; %kron(eye(size(Fl,1)/nph),A_inv)*u4;
-     end
+
      
-     % Solve A*x(X)=u(X) 
+     %% Solve A*x(X)=u(X) 
      u = [u1;u2;u3;u4;u5;u6;u7];
      x = linsolve(A,u);
+   
      
-%      x_unbalanced = x;
-%      u_unbalanced = u;
-%      A_unbalanced = A;
+     %% Assemble magnitude nodal voltage SCs
+     % K{id_x,3}{ctrl_var,1}(idx.slack,1)       %Already good (not taken into account)
+     K{id_x,3}{ctrl_var,1}(idx.pqac,1) =     x( 1: length(idx.pqac) ); 
+     %K{id_x,3}{ctrl_var,1}(idx.pvac,1) =       %Already good; 
+     K{id_x,3}{ctrl_var,1}(idx.pdc,1) =      x( length(idx.slack)+1: length(idx.pqac) ); 
+     %K{id_x,3}{ctrl_var,1}(idx.vdc,1) =        %Already good
+     K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) );
+     K{id_x,3}{ctrl_var,1}(idx.vscac_vq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq) );
+     K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) + length(idx.vscdc_pq) );
+     % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =  %Already good (not taken into account)
+     
+     
+     %% Assemble phase-angle nodal voltage SCs
+     % K{id_x,3}{ctrl_var,1}(idx.slack,1)       %Already good
+     K{id_x,3}{ctrl_var,1}(idx.pqac,1) =     x( length(idx.pqac) + 1: 2*length(idx.pqac) ); 
+     K{id_x,3}{ctrl_var,1}(idx.pvac,1) =     x( 2*length(idx.pqac) + length(idx.pvac) +1 : 2*length(idx.pqac) + 2*length(idx.pvac) ); 
+     %K{id_x,3}{ctrl_var,1}(idx.pdc,1) =        %does not exists 
+     %K{id_x,3}{ctrl_var,1}(idx.vdc,1) =        %does not exists
+     K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) );
+     K{id_x,3}{ctrl_var,1}(idx.vscac_vq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) );
+     % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) = %does not exists 
+     % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =  %does not exists
 
-%      x_balanced = x;
-%      u_balanced = u;
-%      A_balanced = A;
-     
-     % Assemble magnitude nodal voltage SCs
-     K{id_x,3}{ctrl_var,1}(idx.pqac,1) = ...
-         x( 1:length(idx.pqac) ); % PQac nodes
-     K{id_x,3}{ctrl_var,1}(idx.vscac_vq,1) = ...
-         x( 2*length(idx.pqac) +1: 2*length(idx.pqac) +length(idx.vscac_vq)  ); % vsc nodes
-     K{id_x,3}{ctrl_var,1}(idx.pdc,1) = ...  %(idx3ph.pdc+18,ph) = ...
-         x( 2*length(idx.pqac) + 2*length(idx.vscac_vq) +1 : 2*length(idx.pqac) + 2*length(idx.vscac_vq) +length(idx.pdc) ); % pdc nodes
-     
-     % Assemble phase-angle nodal voltage SCs
-     K{id_x,4}{ctrl_var,1}(idx.pqac,1) = ...
-         x( length(idx.pqac)+1 : 2*length(idx.pqac) ); % PQac nodes     
-     K{id_x,4}{ctrl_var,1}(idx.vscac_vq,1) = ...
-         x( 2*length(idx.pqac) +length(idx.vscac_vq) +1: 2*length(idx.pqac) + 2*length(idx.vscac_vq)   ); % VSCac nodes  
-     
-     % Infer nodal voltage SCs 
+     % Infer complex nodal voltage SCs 
      K{id_x,2}{ctrl_var,1}(:,1) = ...
         E.*( (1./abs(E)).*K{id_x,3}{ctrl_var,1}(:,1) + ...
             1i*K{id_x,4}{ctrl_var,1}(:,1) );
