@@ -16,7 +16,8 @@ function [Nodal_V_mag,Nodal_V_angle, Nodal_I_mag, Nodal_I_angle, Flow_I_mag, Flo
 %     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_unbalanced_9.mat'); % very strong unblance
 %     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_unbalanced_10.mat'); % very strong unblance + filter
     
-    data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/data_SC_1.mat'); % very strong unblance + filter
+    data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/data_SC_1.mat'); % balanced + filter
+    
     
     max_range = floor(length(data.B01_Va_mag_control)/10)*10;
    

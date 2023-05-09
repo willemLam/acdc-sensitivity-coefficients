@@ -193,6 +193,9 @@ A14 = tmp_1;
 
 A15 = zeros(size(idx.pqac,1), size(idx.pdc,1));
 
+dP = real(F)./repmat(abs(E).',[size(F,1) 1]) + diag(sum(real(F),2)./abs(E))
+dQ = imag(F)./repmat(abs(E).',[size(F,1) 1]) + diag(sum(real(F),2)./abs(E))
+A11 - dP(idx.pqac,idx.pqac)
 
 %% PQac imag
 % A21
@@ -211,7 +214,6 @@ tmp_1 = -real(F); tmp_1 = tmp_1(idx.pqac,idx.vscac_vq);
 A24 = tmp_1;
 
 A25 = zeros(size(idx.pqac,1), size(idx.pdc,1));
-
 
 
 %% VSC Pac = Pdc 

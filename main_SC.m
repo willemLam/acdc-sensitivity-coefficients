@@ -127,6 +127,14 @@ S_star2(sort([idx3.vscac_pq;idx3.vscac_vq])) = -1i*imag(S_star2(sort([idx3.vscac
 S_star2(sort([idx3.vscdc_pq;idx3.vscdc_vq])) = 0;
 
 
+alp = exp(2*pi/3*1i);
+A = 1/3*[1 1     1; 
+         1 alp   alp^2; 
+         1 alp^2 alp];
+ACell =  repmat({A}, 1, Grid_para.n_ac);
+ICell =  repmat({1}, 1, Grid_para.n_dc); 
+Atot = blkdiag(ACell{:},ICell{:});
+Atot*E_star
 
 
 

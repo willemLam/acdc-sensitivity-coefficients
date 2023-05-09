@@ -1,4 +1,10 @@
 function f = Make_scatter_plot(r,c,n_nodes,mode)
+
+set(groot,'defaultFigureVisible','on')
+set(0, 'DefaultTextInterpreter', 'Latex')
+set(0, 'DefaultLegendInterpreter', 'Latex')
+set(0, 'DefaultAxesTickLabelInterpreter', 'Latex')
+
     L3 = [];
 
     L1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18];
