@@ -1,5 +1,5 @@
 function [K, Time] = SC_Voltage_V5_3(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter)
-%SC_Voltage_V5_3(Yac,Sac,Eac,Ydc,Sdc,Edc,idx1ph,idx3ph,idxCtrl,n_ph,vdep,Zf,Fl,unblanced_3ph, filter)
+
 Yac = Grid_para.Yac;
 Ydc = Grid_para.Ydc;
 Sac = S_star(1:Grid_para.n_ph*Grid_para.n_ac);

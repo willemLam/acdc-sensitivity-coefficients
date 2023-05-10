@@ -118,12 +118,12 @@ for m=1:length(modes)
 
 E_star = mean([V_complex_LF(:,z1); Vdc_LF(:,z1)],2);
 S_star = mean([transpose(complex(Nodal_P(z1,:), Nodal_Q(z1,:))); transpose(complex(Pdc_inj(z1,:),0))],2);
-S_star(sort([idx3.vscac_pq;idx3.vscac_vq])) = -1i*imag(S_star(sort([idx3.vscac_pq;idx3.vscac_vq])));
+S_star(sort([idx3.vscac_pq;idx3.vscac_vq])) = 1i*imag(S_star(sort([idx3.vscac_pq;idx3.vscac_vq])));
 S_star(sort([idx3.vscdc_pq;idx3.vscdc_vq])) = 0;
 
 E_star2 = mean([V_complex_LF(:,z2); Vdc_LF(:,z2)],2);
 S_star2 = mean([transpose(complex(Nodal_P(z2,:), Nodal_Q(z2,:))); transpose(complex(Pdc_inj(z2,:),0))],2);
-S_star2(sort([idx3.vscac_pq;idx3.vscac_vq])) = -1i*imag(S_star2(sort([idx3.vscac_pq;idx3.vscac_vq])));
+S_star2(sort([idx3.vscac_pq;idx3.vscac_vq])) = 1i*imag(S_star2(sort([idx3.vscac_pq;idx3.vscac_vq])));
 S_star2(sort([idx3.vscdc_pq;idx3.vscdc_vq])) = 0;
 
 
@@ -144,7 +144,7 @@ idxCtrl = 1:Grid_para.n_nodes;
 
 %% Compute SC
 % [K, Time] = SC_Voltage_V5(Yac,S0ac,Eac,Ydc,S0dc,Edc,idx1ph,idx3ph,idxCtrl,nph,vdep,Zf,Fl,unblanced_3ph,filter);
-[K, Time] = SC_Voltage_V5_3(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
+% [K, Time] = SC_Voltage_V5_3(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
 [K, Time] = SC_Voltage_V6_balanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
 
 J_PR = zeros(Grid_para.n_nodes);
@@ -173,8 +173,8 @@ for k = 1:size(K,1)
     elseif( sum( K{k,1} == idx3.vscac_pq ))
         J_PR(:,k) = real(K{k,2}{1,1});
         J_PX(:,k) = imag(K{k,2}{1,1});
-        J_QR(:,k) = real(K{k,2}{2,1});
-        J_QX(:,k) = imag(K{k,2}{2,1});
+        J_QR(:,k) = real(K{k,2}{1,1});
+        J_QX(:,k) = imag(K{k,2}{1,1});
     elseif( sum( K{k,1} == idx3.vscac_vq ))
         J_PR(:,k) = real(K{k,2}{1,1});
         J_PX(:,k) = imag(K{k,2}{1,1});
@@ -211,7 +211,7 @@ case 'Q18'
     i = polyphase_indices(18,Grid_para.n_ph);
     r = complex(sum(J_QR(:,i),2),sum(J_QX(:,i),2));
     c = (E_star-E_star2)/imag(S_star(i(1))-S_star2(i(1)));
-  
+
 case 'Q9'
     
     i = polyphase_indices(9,Grid_para.n_ph);

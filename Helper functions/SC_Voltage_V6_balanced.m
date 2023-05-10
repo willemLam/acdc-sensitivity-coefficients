@@ -1,5 +1,5 @@
 function [K, Time] = SC_Voltage_V6_balanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter)
-%SC_Voltage_V5_3(Yac,Sac,Eac,Ydc,Sdc,Edc,idx1ph,idx3ph,idxCtrl,n_ph,vdep,Zf,Fl,unblanced_3ph, filter)
+
 Yac = Grid_para.Yac;
 Ydc = Grid_para.Ydc;
 Sac = S_star(1:Grid_para.n_ph*Grid_para.n_ac);
@@ -652,7 +652,7 @@ for id_x = 1:length(idxCtrl)
                       zeros(length(idx.pvac),1)];
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
-                u5 = [-dV_mag(idx.vscac_pq,tmp_idx);
+                u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
                 u6 = [zeros(length(idx.vscac_vq),1);
                       zeros(length(idx.vscac_vq),1)];
@@ -665,9 +665,9 @@ for id_x = 1:length(idxCtrl)
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
-                      -dV_mag(idx.vscac_pq,tmp_idx)];
+                      zeros(length(idx.vscac_pq),1)]; 
                 u6 = [zeros(length(idx.vscac_vq),1);
-                      zeros(length(idx.vscac_vq),1)];
+                      -dV_mag(idx.vscac_vq,tmp_idx)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
               end
              
@@ -750,15 +750,15 @@ for id_x = 1:length(idxCtrl)
      
      
      %% Assemble phase-angle nodal voltage SCs
-     % K{id_x,3}{ctrl_var,1}(idx.slack,1)       %Already good
-     K{id_x,3}{ctrl_var,1}(idx.pqac,1) =     x( length(idx.pqac) + 1: 2*length(idx.pqac) ); 
-     K{id_x,3}{ctrl_var,1}(idx.pvac,1) =     x( 2*length(idx.pqac) + length(idx.pvac) +1 : 2*length(idx.pqac) + 2*length(idx.pvac) ); 
-     %K{id_x,3}{ctrl_var,1}(idx.pdc,1) =        %does not exists 
-     %K{id_x,3}{ctrl_var,1}(idx.vdc,1) =        %does not exists
-     K{id_x,3}{ctrl_var,1}(idx.vscac_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) );
-     K{id_x,3}{ctrl_var,1}(idx.vscac_vq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) );
-     % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) = %does not exists 
-     % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =  %does not exists
+     % K{id_x,4}{ctrl_var,1}(idx.slack,1)       %Already good
+     K{id_x,4}{ctrl_var,1}(idx.pqac,1) =     x( length(idx.pqac) + 1: 2*length(idx.pqac) ); 
+     K{id_x,4}{ctrl_var,1}(idx.pvac,1) =     x( 2*length(idx.pqac) + length(idx.pvac) +1 : 2*length(idx.pqac) + 2*length(idx.pvac) ); 
+     %K{id_x,4}{ctrl_var,1}(idx.pdc,1) =        %does not exists 
+     %K{id_x,4}{ctrl_var,1}(idx.vdc,1) =        %does not exists
+     K{id_x,4}{ctrl_var,1}(idx.vscac_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) );
+     K{id_x,4}{ctrl_var,1}(idx.vscac_vq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) );
+     % K{id_x,4}{ctrl_var,1}(idx.vscdc_pq,1) = %does not exists 
+     % K{id_x,4}{ctrl_var,1}(idx.vscdc_pq,1) =  %does not exists
 
      % Infer complex nodal voltage SCs 
      K{id_x,2}{ctrl_var,1}(:,1) = E.*( (1./abs(E)).*K{id_x,3}{ctrl_var,1}(:,1) + 1i*K{id_x,4}{ctrl_var,1}(:,1) );
