@@ -1,4 +1,4 @@
-%main script for linear power system state estimation
+%% main script for linear power system state estimation
 
 clear all;
 close all;
@@ -37,6 +37,24 @@ Grid_para.YY = YY;
 Grid_para.Yac = Yac;
 Grid_para.Ydc = Ydc;
 
+%% Set the nodes types
+idx1.slack = 1;
+idx1.pqac = [2:14]';
+idx1.pvac = []';
+
+idx1.pdc = [23:26]';
+idx1.vdc = []';
+
+idx1.vscac_pq = []';
+idx1.vscac_vq = [15:18]';
+
+idx1.vscdc_pq = []';
+idx1.vscdc_vq = [19:22]';
+
+idx3 = Get_multiphase_Node_indices(idx1,Grid_para);
+linedata = [linedata_ac;linedata_dc];
+Grid_para = Get_Converter_para(idx1,linedata,Grid_para);
+
 
 %% Set the filter parameters
 Filter_para.R = 0.08*Y_b; %checked
@@ -48,7 +66,10 @@ Filter_para.IGBT_piecewise = [  0                   0
                                 107.547461516782	0.8999
                                 735.837403888342	0.9499
                                 1588.01477341768	0.9699];
-Filter_para.Exclude_losses = 1;
+Filter_para.Exclude_losses = 0;
+
+
+
 
    
 %% Get the EMTP measurements
@@ -134,18 +155,38 @@ A = 1/3*[1 1     1;
 ACell =  repmat({A}, 1, Grid_para.n_ac);
 ICell =  repmat({1}, 1, Grid_para.n_dc); 
 Atot = blkdiag(ACell{:},ICell{:});
-Atot*E_star
+Atot*E_star;
+
+
+%% Augment YY to include the filter and IGBT losses into the admitance matrix
+[Yac_augmented, A_augmented, Zloss,Zfilter] = include_losses_filter_in_Y('linedata_AC.txt',Grid_para,Filter_para,idx1,E_star);
+Yac_augmented = cell2mat(arrayfun(@(x) x*eye(Grid_para.n_ph),Yac_augmented,'UniformOutput',false));
+YY_augmented = blkdiag(Yac_augmented,Ydc);
+
+%% Augment E_star and S_star to include the filter and IGBT losses into the admitance matrix
+Zloss = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zloss,'UniformOutput',false))
+Zfilter = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zfilter,'UniformOutput',false))
+
+E_augment_loss = E_star(sort([idx3.vscac_pq;idx3.vscac_vq])) + Zloss.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
+E_augment_filter = E_augment_loss.*(1+ Zfilter*0) + Zfilter.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star)
+
+E_star_augmented = [E_star(1:Grid_para.n_ac*Grid_para.n_ph); E_augment_loss; E_augment_filter; E_star(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
+
+%% Augment indices
 
 
 
+
+%% Compute SC
 filter = 0;
 unblanced_3ph  = 0;
 idxCtrl = 1:Grid_para.n_nodes;
 
-%% Compute SC
+
 % [K, Time] = SC_Voltage_V5(Yac,S0ac,Eac,Ydc,S0dc,Edc,idx1ph,idx3ph,idxCtrl,nph,vdep,Zf,Fl,unblanced_3ph,filter);
 % [K, Time] = SC_Voltage_V5_3(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
 [K, Time] = SC_Voltage_V6_balanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
+% [K, Time] = SC_Voltage_V6_balanced_losses(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter)
 
 J_PR = zeros(Grid_para.n_nodes);
 J_PX = zeros(Grid_para.n_nodes);
@@ -173,8 +214,8 @@ for k = 1:size(K,1)
     elseif( sum( K{k,1} == idx3.vscac_pq ))
         J_PR(:,k) = real(K{k,2}{1,1});
         J_PX(:,k) = imag(K{k,2}{1,1});
-        J_QR(:,k) = real(K{k,2}{1,1});
-        J_QX(:,k) = imag(K{k,2}{1,1});
+        J_QR(:,k) = real(K{k,2}{2,1}); %1?
+        J_QX(:,k) = imag(K{k,2}{2,1}); %1?
     elseif( sum( K{k,1} == idx3.vscac_vq ))
         J_PR(:,k) = real(K{k,2}{1,1});
         J_PX(:,k) = imag(K{k,2}{1,1});
