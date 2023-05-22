@@ -1,4 +1,4 @@
-function [YY, YYL, YL, YT, YYT, I_b, Ampacities, y_ih, y_i, A, linedata]  = make_Y_augmented(Text,Grid_para,idx1,Zloss,Zfilter)
+function [YY, YYL, YL, YT, YYT, I_b, Ampacities, y_ih, y_i, A, linedata]  = make_Y_augmented(Text,Grid_para,idx1,Zloss,Zfilter,type)
 
     V_b = Grid_para.V_b;
     A_b = Grid_para.A_b;
@@ -24,33 +24,49 @@ function [YY, YYL, YL, YT, YYT, I_b, Ampacities, y_ih, y_i, A, linedata]  = make
 %         idx_tmp = find(linedata(:,2)==idx_to_change(i));
 %         linedata(idx_tmp,2) = n_ac + i;
 %     end
-    
+    if type == 0
     %% add the IGBT losses
-    linedata_template = [0 0 0 0 0 1 100 0 1];
-    for i = 1:length(idx_to_augment)
-        linedata_append = linedata_template;
-        linedata_append(1) = idx_to_augment(i);
-        linedata_append(2) = n_ac + i;
-        linedata_append(3) = real(Zloss(i));
-        linedata_append(4) = imag(Zloss(i));
-        linedata_append(5) = 1E-9; % for numeric stability
+        linedata_template = [0 0 0 0 0 1 100 0 1];
+        for i = 1:length(idx_to_augment)
+            linedata_append = linedata_template;
+            linedata_append(1) = idx_to_augment(i);
+            linedata_append(2) = n_ac + i;
+            linedata_append(3) = real(Zloss(i) + Zfilter(i));
+            linedata_append(4) = imag(Zloss(i) + Zfilter(i));
+            linedata_append(5) = 1E-9; % for numeric stability
 
-        linedata = [linedata ; linedata_append];
-    end   
+            linedata = [linedata ; linedata_append];
+        end   
     
-    %% add the filter
-    linedata_template = [0 0 0 0 0 1 100 0 1];
-    for i = 1:length(idx_to_augment)
-        linedata_append = linedata_template;
-        linedata_append(1) = n_ac + i;
-        linedata_append(2) = n_ac + length(idx_to_augment) + i;
-        linedata_append(3) = real(Zfilter(i));
-        linedata_append(4) = imag(Zfilter(i));
-        linedata_append(5) = 1E-9; % for numeric stability
+    elseif type == 1
+        
+    %% add the IGBT losses
+        linedata_template = [0 0 0 0 0 1 100 0 1];
+        for i = 1:length(idx_to_augment)
+            linedata_append = linedata_template;
+            linedata_append(1) = idx_to_augment(i);
+            linedata_append(2) = n_ac + i;
+            linedata_append(3) = real(Zloss(i));
+            linedata_append(4) = imag(Zloss(i));
+            linedata_append(5) = 1E-9; % for numeric stability
 
-        linedata = [linedata ; linedata_append];
-    end    
+            linedata = [linedata ; linedata_append];
+        end   
 
+        %% add the filter
+        linedata_template = [0 0 0 0 0 1 100 0 1];
+        for i = 1:length(idx_to_augment)
+            linedata_append = linedata_template;
+            linedata_append(1) = n_ac + i;
+            linedata_append(2) = n_ac + length(idx_to_augment) + i;
+            linedata_append(3) = real(Zfilter(i));
+            linedata_append(4) = imag(Zfilter(i));
+            linedata_append(5) = 1E-9; % for numeric stability
+
+            linedata = [linedata ; linedata_append];
+        end    
+
+    end
     n_lines=length(linedata(:,1));                          %%%number of lines
     n_nodes=max(max(linedata(:,1)),max(linedata(:,2))); %%%number of nodes
 

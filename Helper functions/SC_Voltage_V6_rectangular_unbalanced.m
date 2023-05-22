@@ -1,13 +1,13 @@
-function [K, Time] = SC_Voltage_V6_rectangular_losses(S_star,E_star_augmented,idx1_augmented,idx3_augmented,Grid_para_augmented,Filter_para,idxCtrl,unblanced_3ph,filter)
+function [K, Time] = SC_Voltage_V6_rectangular_unbalanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter)
 
-Yac = Grid_para_augmented.Yac;
-Ydc = Grid_para_augmented.Ydc;
-% Sac = S_star(1:Grid_para.n_ph*Grid_para.n_ac);
-Eac = E_star_augmented(1:Grid_para_augmented.n_ph*Grid_para_augmented.n_ac);
-% Sdc = S_star(Grid_para.n_ph*Grid_para.n_ac+1:end);
-Edc = E_star_augmented(Grid_para_augmented.n_ph*Grid_para_augmented.n_ac+1:end);
-n_ph = Grid_para_augmented.n_ph;
-Fl = Grid_para_augmented.pos_ac3;
+Yac = Grid_para.Yac;
+Ydc = Grid_para.Ydc;
+Sac = S_star(1:Grid_para.n_ph*Grid_para.n_ac);
+Eac = E_star(1:Grid_para.n_ph*Grid_para.n_ac);
+Sdc = S_star(Grid_para.n_ph*Grid_para.n_ac+1:end);
+Edc = E_star(Grid_para.n_ph*Grid_para.n_ac+1:end);
+n_ph = Grid_para.n_ph;
+Fl = Grid_para.pos_ac3;
 
 % the function computes analytically the SC of the nodes when one or more
 % VSC's are present that operate on QV control. The function takes the filter into account
@@ -84,9 +84,9 @@ else
 end
 
 if n_ph == 1
-    idx = idx1_augmented;
+    idx = idx1;
 else
-    idx = idx3_augmented;
+    idx = idx3;
 end
 
 
@@ -117,10 +117,13 @@ for i = 1:n_ph:size(Fac,1)
     end
 end
 
+P0ac = real(Sac);
+Q0ac = imag(Sac);
 
 % Fdc = diag(Edc)*conj(Ydc(19:26,19:26))*diag(conj(Edc));
 Fdc = real(diag(Edc)*conj(Ydc)*diag(conj(Edc)));
-
+P0dc = real(Sdc);
+Q0dc = imag(Sdc);
       
 F = blkdiag(Fac,Fdc);
 F_s = blkdiag(Fac_s,Fdc);
@@ -129,13 +132,13 @@ E_s = [Eac;Edc];
 
 
 %% Filter
-I_b =Grid_para_augmented.Y_b*Grid_para_augmented.V_b;
-Imag = abs(Grid_para_augmented.YY*E_star_augmented);
-R_eq_ctu = interp1(Filter_para.IGBT_piecewise(:,1),Filter_para.IGBT_piecewise(:,2),Imag*I_b)./Grid_para_augmented.V_b./Imag;
+I_b =Grid_para.Y_b*Grid_para.V_b;
+Imag = abs(Grid_para.YY*E_star);
+R_eq_ctu = interp1(Filter_para.IGBT_piecewise(:,1),Filter_para.IGBT_piecewise(:,2),Imag*I_b)./Grid_para.V_b./Imag;
 R_eq = (R_eq_ctu*4/pi); % ???
 R_eq(isnan(R_eq))=0;
 R_eq(isinf(R_eq))=0;
-Zf = (Filter_para.R + R_eq(sort([idx3_augmented.vscac_pq;idx3_augmented.vscac_vq]))) + 1i*Filter_para.X;
+Zf = (Filter_para.R + R_eq(sort([idx3.vscac_pq;idx3.vscac_vq]))) + 1i*Filter_para.X;
 
     
 % influence of the filter
@@ -171,21 +174,98 @@ end
 % idx3ph.pdc  =idx3ph.pdc-n_nodesac;
 % Create each sub-matrix
 
-%% Balanced
-F = conj(Grid_para_augmented.YY).*E_star_augmented;
-H = diag(Grid_para_augmented.YY*E_star_augmented);
+dP_real = real(F)./repmat(abs(E).',[size(F,1) 1]) + diag(sum(real(F),2)./abs(E));
+dP_imag = imag(F) - diag(sum(imag(F),2));
 
-dP_real = real(F) + real(H);
-dP_imag = imag(F) + imag(H);
-
-dQ_real = -imag(F) + imag(H);
-dQ_imag = real(F) - real(H);
+dQ_real = imag(F)./repmat(abs(E).',[size(F,1) 1]) + diag(sum(imag(F),2)./abs(E));
+dQ_imag = -real(F) + diag(sum(real(F),2));
 
 dV_real = -eye(size(F));% +  (dQ_real - diag(diag(dQ_real)));
-dV_imag = eye(size(F));
+dV_imag = dQ_imag;
 
 dVdc = -eye(size(F));% +  (dP_real - diag(diag(dP_real)));
 
+
+%% Balanced
+F_sym = conj(Grid_para.YY).*(E_star);
+H_sym = diag(Grid_para.YY*(E_star));
+
+dP_real = real(F_sym) + real(H_sym);
+dP_imag = imag(F_sym) + imag(H_sym);
+
+dQ_real = -imag(F_sym) + imag(H_sym);
+dQ_imag = real(F_sym) - real(H_sym);
+
+
+dV_real = -eye(size(F));
+dV_imag = eye(size(F));
+
+%% Unbalanced
+
+alp = exp(2*pi/3*1i);
+T_inv = 1/3*   [1 1     1; 
+                1 alp   alp^2; 
+                1 alp^2 alp];
+t_inv = [0;1;0];
+TCell =  repmat({T_inv}, 1, Grid_para.n_ac);
+tCell =  repmat({t_inv}, 1, Grid_para.n_ac);
+ICell =  repmat({1}, 1, Grid_para.n_dc); 
+Ttot = blkdiag(TCell{:},ICell{:});
+ttot = vertcat(tCell{:},ICell{:});
+
+% sequence voltages
+
+dP_symE_real = real(Ttot);
+dP_symE_imag = -imag(Ttot);
+
+dQ_symE_real = imag(Ttot);
+dQ_symE_imag = real(Ttot);
+
+
+
+% sequence powers
+F_sym = conj(Grid_para.YY).*(Ttot*E_star);
+H_sym = diag(Grid_para.YY*(Ttot*E_star));
+
+for i = 1:n_ph:size(Fac,1)
+    for j = 1:n_ph:size(Fac,2)
+        F_sym(i:i+n_ph-1,j:j+n_ph-1) = inv(T_inv).*(transpose(sum(F_sym(i:i+n_ph-1,j:j+n_ph-1))) );
+        H_sym(i:i+n_ph-1,j:j+n_ph-1) = inv(T_inv).*(transpose(sum(H_sym(i:i+n_ph-1,j:j+n_ph-1))) );
+    end  
+end
+
+dP_sym_real = real(F_sym) + real(H_sym);
+dP_sym_imag = imag(F_sym) + imag(H_sym);
+
+dQ_sym_real = -imag(F_sym) + imag(H_sym);
+dQ_sym_imag = real(F_sym) - real(H_sym);
+
+%Combine
+
+indexes_0 = 1:3:Grid_para.n_ac*Grid_para.n_ph;
+indexes_n = 3:3:Grid_para.n_ac*Grid_para.n_ph;
+
+dP_sym_real(indexes_0,:) = dP_symE_real(indexes_0,:);
+dP_sym_real(indexes_n,:) = dP_symE_real(indexes_n,:);
+
+dP_sym_imag(indexes_0,:) = dP_symE_imag(indexes_0,:);
+dP_sym_imag(indexes_n,:) = dP_symE_imag(indexes_n,:);
+
+dQ_sym_real(indexes_0,:) = dQ_symE_real(indexes_0,:);
+dQ_sym_real(indexes_n,:) = dQ_symE_real(indexes_n,:);
+
+dQ_sym_imag(indexes_0,:) = dQ_symE_imag(indexes_0,:);
+dQ_sym_imag(indexes_n,:) = dQ_symE_imag(indexes_n,:);
+
+
+
+dV_sym_real = -diag(ttot);% +  (dQ_real - diag(diag(dQ_real)));
+dV_sym_imag = diag(ttot);
+
+dVdc_sym = -diag(ttot);% +  (dP_real - diag(diag(dP_real)));
+
+
+dVdc_sym = dVdc;% +  (dP_real - diag(diag(dP_real)));
 
 %% P - Q 
 % A11   magE, angE (idx.pqac)
@@ -203,13 +283,9 @@ A14 = [zeros(length(idx.pqac),length(idx.vdc));
 % A15   magE, angE (vscac_pq)
 A15 = [dP_real(idx.pqac,idx.vscac_pq) dP_imag(idx.pqac,idx.vscac_pq);
        dQ_real(idx.pqac,idx.vscac_pq) dQ_imag(idx.pqac,idx.vscac_pq)];
-% A16   magE, angE (vscac_vq_v
-A16a = [dP_real(idx.pqac,idx.vscac_vq_v) dP_imag(idx.pqac,idx.vscac_vq_v);
-       dQ_real(idx.pqac,idx.vscac_vq_v) dQ_imag(idx.pqac,idx.vscac_vq_v)];
-% A16   magE, angE (vscac_vq_q
-A16b = [dP_real(idx.pqac,idx.vscac_vq_q) dP_imag(idx.pqac,idx.vscac_vq_q);
-       dQ_real(idx.pqac,idx.vscac_vq_q) dQ_imag(idx.pqac,idx.vscac_vq_q)];
-
+% A16   magE, angE (vscac_vq)
+A16 = [dP_real(idx.pqac,idx.vscac_vq) dP_imag(idx.pqac,idx.vscac_vq);
+       dQ_real(idx.pqac,idx.vscac_vq) dQ_imag(idx.pqac,idx.vscac_vq)];
 % A17   Edc (vscdc_p)
 A17 = [dP_real(idx.pqac,idx.vscdc_pq);
        dQ_real(idx.pqac,idx.vscdc_pq)];
@@ -231,11 +307,8 @@ A24 = [zeros(length(idx.pvac),length(idx.vdc));
 A25 = [dP_real(idx.pvac,idx.vscac_pq) dP_imag(idx.pvac,idx.vscac_pq);
        dV_real(idx.pvac,idx.vscac_pq) dV_imag(idx.pvac,idx.vscac_pq)];
 % A26   magE, angE (vscac_vq)
-A26a = [dP_real(idx.pvac,idx.vscac_vq_v) dP_imag(idx.pvac,idx.vscac_vq_v);
-       dV_real(idx.pvac,idx.vscac_vq_v) dV_imag(idx.pvac,idx.vscac_vq_v)];
-% A26   magE, angE (vscac_vq)
-A26b = [dP_real(idx.pvac,idx.vscac_vq_q) dP_imag(idx.pvac,idx.vscac_vq_q);
-       dV_real(idx.pvac,idx.vscac_vq_q) dV_imag(idx.pvac,idx.vscac_vq_q)];
+A26 = [dP_real(idx.pvac,idx.vscac_vq) dP_imag(idx.pvac,idx.vscac_vq);
+       dV_real(idx.pvac,idx.vscac_vq) dV_imag(idx.pvac,idx.vscac_vq)];
 % A27   Edc (vscdc_p)
 A27 = [dP_real(idx.pvac,idx.vscdc_pq);
        dV_real(idx.pvac,idx.vscdc_pq)];
@@ -252,9 +325,7 @@ A34 = [zeros(length(idx.pdc),length(idx.vdc))];
 % A15   magE, angE (vscac_pq)
 A35 = [dP_real(idx.pdc,idx.vscac_pq) dP_imag(idx.pdc,idx.vscac_pq)];
 % A16   magE, angE (vscac_vq)
-A36a = [dP_real(idx.pdc,idx.vscac_vq_v) dP_imag(idx.pdc,idx.vscac_vq_v)];
-% A16   magE, angE (vscac_vq)
-A36b = [dP_real(idx.pdc,idx.vscac_vq_q) dP_imag(idx.pdc,idx.vscac_vq_q)];
+A36 = [dP_real(idx.pdc,idx.vscac_vq) dP_imag(idx.pdc,idx.vscac_vq)];
 % A17   Edc (vscdc_p)
 A37 = [dP_real(idx.pdc,idx.vscdc_pq)];
    
@@ -270,92 +341,58 @@ A44 = [dVdc(idx.vdc,idx.pdc)];
 % A15   magE, angE (vscac_pq)
 A45 = [dP_real(idx.vdc,idx.vscac_pq) dP_imag(idx.vdc,idx.vscac_pq)];
 % A16   magE, angE (vscac_vq)
-A46a = [dP_real(idx.vdc,idx.vscac_vq_v) dP_imag(idx.vdc,idx.vscac_vq_v)];
-% A16   magE, angE (vscac_vq)
-A46b = [dP_real(idx.vdc,idx.vscac_vq_q) dP_imag(idx.vdc,idx.vscac_vq_q)];
+A46 = [dP_real(idx.vdc,idx.vscac_vq) dP_imag(idx.vdc,idx.vscac_vq)];
 % A17   Edc (vscdc_p)
 A47 = [dP_real(idx.vdc,idx.vscdc_pq)];
 
 %% VSC PQ
 % A51   magE, angE (idx.pqac)
-A51 = [dP_real(idx.vscac_pq,idx.pqac) dP_imag(idx.vscac_pq,idx.pqac);
-       dQ_real(idx.vscac_pq,idx.pqac) dQ_imag(idx.vscac_pq,idx.pqac)];
+A51 = [dP_sym_real(idx.vscac_pq,idx.pqac) dP_sym_imag(idx.vscac_pq,idx.pqac);
+       dQ_sym_real(idx.vscac_pq,idx.pqac) dQ_sym_imag(idx.vscac_pq,idx.pqac)];
 % A52   Q   ,angE (idx.pvac)
-A52 = [zeros(length(idx.vscac_pq),length(idx.pvac)) dP_imag(idx.vscac_pq,idx.pvac);
-       zeros(length(idx.vscac_pq),length(idx.pvac)) dQ_imag(idx.vscac_pq,idx.pvac)];
+A52 = [zeros(length(idx.vscac_pq),length(idx.pvac)) dP_sym_imag(idx.vscac_pq,idx.pvac);
+       zeros(length(idx.vscac_pq),length(idx.pvac)) dQ_sym_imag(idx.vscac_pq,idx.pvac)];
 % A53   Edc (idx.pdc)
-A53 = [dP_real(idx.vscac_pq,idx.pdc);
-       dQ_real(idx.vscac_pq,idx.pdc)];
+A53 = [dP_sym_real(idx.vscac_pq,idx.pdc);
+       dQ_sym_real(idx.vscac_pq,idx.pdc)];
 % A54   Pdc (idx.vdc)
 A54 = [zeros(length(idx.vscac_pq),length(idx.vdc));
        zeros(length(idx.vscac_pq),length(idx.vdc))];
 % A55   magE, angE (vscac_pq)
-A55 = [dP_real(idx.vscac_pq,idx.vscac_pq) dP_imag(idx.vscac_pq,idx.vscac_pq);
-       dQ_real(idx.vscac_pq,idx.vscac_pq) dQ_imag(idx.vscac_pq,idx.vscac_pq)];
+A55 = [dP_sym_real(idx.vscac_pq,idx.vscac_pq) dP_sym_imag(idx.vscac_pq,idx.vscac_pq);
+       dQ_sym_real(idx.vscac_pq,idx.vscac_pq) dQ_sym_imag(idx.vscac_pq,idx.vscac_pq)];
 % A56   magE, angE (vscac_vq)
-A56a = [dP_real(idx.vscac_pq,idx.vscac_vq_v) dP_imag(idx.vscac_pq,idx.vscac_vq_v);
-       dQ_real(idx.vscac_pq,idx.vscac_vq_v) dQ_imag(idx.vscac_pq,idx.vscac_vq_v)];
-% A56   magE, angE (vscac_vq)
-A56b = [dP_real(idx.vscac_pq,idx.vscac_vq_q) dP_imag(idx.vscac_pq,idx.vscac_vq_q);
-       dQ_real(idx.vscac_pq,idx.vscac_vq_q) dQ_imag(idx.vscac_pq,idx.vscac_vq_q)];
+A56 = [dP_sym_real(idx.vscac_pq,idx.vscac_vq) dP_sym_imag(idx.vscac_pq,idx.vscac_vq);
+       dQ_sym_real(idx.vscac_pq,idx.vscac_vq) dQ_sym_imag(idx.vscac_pq,idx.vscac_vq)];
 % A57   Edc (vscdc_p)
-A57 = [dP_real(idx.vscac_pq,idx.vscdc_pq);
-       dQ_real(idx.vscac_pq,idx.vscdc_pq)];
+A57 = [dP_sym_real(idx.vscac_pq,idx.vscdc_pq);
+       dQ_sym_real(idx.vscac_pq,idx.vscdc_pq)];
    
-%% VSC VdcQ_V
+%% VSC VdcQ
 % A61   magE, angE (idx.pqac)
-A6a1 = [dP_real(idx.vscac_vq_v,idx.pqac) dP_imag(idx.vscac_vq_v,idx.pqac);
-       dQ_real(idx.vscac_vq_v,idx.pqac) dQ_imag(idx.vscac_vq_v,idx.pqac)];
+A61 = [dP_sym_real(idx.vscac_vq,idx.pqac) dP_sym_imag(idx.vscac_vq,idx.pqac);
+       dQ_sym_real(idx.vscac_vq,idx.pqac) dQ_sym_imag(idx.vscac_vq,idx.pqac)];
 % A62   Q   ,angE (idx.pvac)
-A6a2 = [zeros(length(idx.vscac_vq_v),length(idx.pvac)) dP_imag(idx.vscac_vq_v,idx.pvac);
-       zeros(length(idx.vscac_vq_v),length(idx.pvac)) dQ_imag(idx.vscac_vq_v,idx.pvac)];
+A62 = [zeros(length(idx.vscac_vq),length(idx.pvac)) dP_sym_imag(idx.vscac_vq,idx.pvac);
+       zeros(length(idx.vscac_vq),length(idx.pvac)) dQ_sym_imag(idx.vscac_vq,idx.pvac)];
 % A63   Edc (idx.pdc)
 
-index_vsc_v = repmat(idx.vscdc_vq,1,n_ph)';
-A6a3 = [dP_real(index_vsc_v,idx.pdc); %!!!! maybe x and y have to be swapped
-       dQ_real(idx.vscac_vq_v,idx.pdc)]; %index_vsc_v??
+index_vsc = repmat(idx.vscdc_vq,1,n_ph)';
+A63 = [dP_sym_real(index_vsc,idx.pdc); %!!!! maybe x and y have to be swapped
+       dQ_sym_real(index_vsc,idx.pdc)];
 % A64   Pdc (idx.vdc)
-A6a4 = [zeros(length(idx.vscac_vq_v),length(idx.vdc));
-       zeros(length(idx.vscac_vq_v),length(idx.vdc))];
+A64 = [zeros(length(idx.vscac_vq),length(idx.vdc));
+       zeros(length(idx.vscac_vq),length(idx.vdc))];
 % A65   magE, angE (vscac_pq)
-A6a5 = [dP_real(idx.vscac_vq_v,idx.vscac_pq) dP_imag(idx.vscac_vq_v,idx.vscac_pq);
-        dQ_real(idx.vscac_vq_v,idx.vscac_pq) dQ_imag(idx.vscac_vq_v,idx.vscac_pq)];
+A65 = [dP_sym_real(idx.vscac_vq,idx.vscac_pq) dP_sym_imag(idx.vscac_vq,idx.vscac_pq);
+       dQ_sym_real(idx.vscac_vq,idx.vscac_pq) dQ_sym_imag(idx.vscac_vq,idx.vscac_pq)];
 % A66   magE, angE (vscac_vq)
-A6a6a = [dP_real(idx.vscac_vq_v,idx.vscac_vq_v) dP_imag(idx.vscac_vq_v,idx.vscac_vq_v);
-         dQ_real(idx.vscac_vq_v,idx.vscac_vq_v) dQ_imag(idx.vscac_vq_v,idx.vscac_vq_v)];
-% A66   magE, angE (vscac_vq)
-A6a6b = [dP_real(idx.vscac_vq_v,idx.vscac_vq_q) dP_imag(idx.vscac_vq_v,idx.vscac_vq_q);
-         dQ_real(idx.vscac_vq_v,idx.vscac_vq_q) dQ_imag(idx.vscac_vq_v,idx.vscac_vq_q)];
+A66 = [dP_sym_real(idx.vscac_vq,idx.vscac_vq) dP_sym_imag(idx.vscac_vq,idx.vscac_vq);
+       dQ_sym_real(idx.vscac_vq,idx.vscac_vq) dQ_sym_imag(idx.vscac_vq,idx.vscac_vq)];
 % A67   Edc (vscdc_p)
-A6a7 = [dP_real(idx.vscac_vq_v,idx.vscdc_pq);
-        dQ_real(idx.vscac_vq_v,idx.vscdc_pq)];
+A67 = [dP_sym_real(idx.vscac_vq,idx.vscdc_pq);
+       dQ_sym_real(idx.vscac_vq,idx.vscdc_pq)];
    
-%% VSC VdcQ_Q
-% A61   magE, angE (idx.pqac)
-A6b1 = [dP_real(idx.vscac_vq_q,idx.pqac) dP_imag(idx.vscac_vq_q,idx.pqac);
-        dQ_real(idx.vscac_vq_q,idx.pqac) dQ_imag(idx.vscac_vq_q,idx.pqac)];
-% A62   Q   ,angE (idx.pvac)
-A6b2 = [zeros(length(idx.vscac_vq_q),length(idx.pvac)) dP_imag(idx.vscac_vq_q,idx.pvac);
-        zeros(length(idx.vscac_vq_q),length(idx.pvac)) dQ_imag(idx.vscac_vq_q,idx.pvac)];
-% A63   Edc (idx.pdc)
-A6b3 = [dP_real(idx.vscac_vq_q,idx.pdc);
-        dQ_real(idx.vscac_vq_q,idx.pdc)];
-% A64   Pdc (idx.vdc)
-A6b4 = [zeros(length(idx.vscac_vq_q),length(idx.vdc));
-        zeros(length(idx.vscac_vq_q),length(idx.vdc))];
-% A65   magE, angE (vscac_pq)
-A6b5 = [dP_real(idx.vscac_vq_q,idx.vscac_pq) dP_imag(idx.vscac_vq_q,idx.vscac_pq);
-        dQ_real(idx.vscac_vq_q,idx.vscac_pq) dQ_imag(idx.vscac_vq_q,idx.vscac_pq)];
-% A66   magE, angE (vscac_vq)
-A6b6a = [dP_real(idx.vscac_vq_q,idx.vscac_vq_v) dP_imag(idx.vscac_vq_q,idx.vscac_vq_v);
-         dQ_real(idx.vscac_vq_q,idx.vscac_vq_v) dQ_imag(idx.vscac_vq_q,idx.vscac_vq_v)];
-% A66   magE, angE (vscac_vq)
-A6b6b = [dP_real(idx.vscac_vq_q,idx.vscac_vq_q) dP_imag(idx.vscac_vq_q,idx.vscac_vq_q);
-         dQ_real(idx.vscac_vq_q,idx.vscac_vq_q) dQ_imag(idx.vscac_vq_q,idx.vscac_vq_q)];
-% A67   Edc (vscdc_p)
-A6b7 = [dP_real(idx.vscac_vq_q,idx.vscdc_pq);
-        dQ_real(idx.vscac_vq_q,idx.vscdc_pq)];
-
 %% Pdc vsc
 % A71   magE, angE (idx.pqac)
 A71 = [dP_real(idx.vscdc_pq,idx.pqac) dP_imag(idx.vscdc_pq,idx.pqac)];
@@ -368,9 +405,7 @@ A74 = [zeros(length(idx.vscdc_pq),length(idx.vdc))];
 % A75   magE, angE (vscac_pq)
 A75 = [dP_real(idx.vscdc_pq,idx.vscac_pq) dP_imag(idx.vscdc_pq,idx.vscac_pq)];
 % A76   magE, angE (vscac_vq)
-A76a = [dP_real(idx.vscdc_pq,idx.vscac_vq_v) dP_imag(idx.vscdc_pq,idx.vscac_vq_v)];
-% A76   magE, angE (vscac_vq)
-A76b = [dP_real(idx.vscdc_pq,idx.vscac_vq_q) dP_imag(idx.vscdc_pq,idx.vscac_vq_q)];
+A76 = [dP_real(idx.vscdc_pq,idx.vscac_vq) dP_imag(idx.vscdc_pq,idx.vscac_vq)];
 % A77   Edc (vscdc_p)
 A77 = [dP_real(idx.vscdc_pq,idx.vscdc_pq)];
 
@@ -378,15 +413,13 @@ A77 = [dP_real(idx.vscdc_pq,idx.vscdc_pq)];
 
 
 %% Assemble A
-A = [ A11 A12 A13 A14 A15 A16a A16b A17; ...
-      A21 A22 A23 A24 A25 A26a A26b A27; ...
-      A31 A32 A33 A34 A35 A36a A36b A37; ...
-      A41 A42 A43 A44 A45 A46a A46b A47; ...
-      A51 A52 A53 A54 A55 A56a A56b A57; ...
-      A6a1 A6a2 A6a3 A6a4 A6a5 A6a6a A6a6b A6a7; ...
-      A6b1 A6b2 A6b3 A6b4 A6b5 A6b6a A6b6b A6b7; ...
-      A71 A72 A73 A74 A75 A76a A76b A77];
-
+A = [ A11 A12 A13 A14 A15 A16 A17; ...
+      A21 A22 A23 A24 A25 A26 A27; ...
+      A31 A32 A33 A34 A35 A36 A37; ...
+      A41 A42 A43 A44 A45 A46 A47; ...
+      A51 A52 A53 A54 A55 A56 A57; ...
+      A61 A62 A63 A64 A65 A66 A67; ...
+      A71 A72 A73 A74 A75 A76 A77];
 
 % Anew=[A11 A16 A13;...
 %       A61 A66 A63;...
@@ -399,16 +432,16 @@ Time.A = toc(T);
 % %% eq 3
 % 
 % sc = complex(J_VR(:,1),J_VX(:,1))
-% sc_mag = 1./abs(E(2:end)) .* real(conj(E(2:end)) .* sc)
-% sc_ang = 1./abs(E(2:end)).^2 .* imag(conj(E(2:end)) .* sc)
+% sc_real = 1./abs(E(2:end)) .* real(conj(E(2:end)) .* sc)
+% sc_imag = 1./abs(E(2:end)).^2 .* imag(conj(E(2:end)) .* sc)
 % 
-% sum(sum(real(F(15,:)))/abs(E(15)) + real(F(15,15))/abs(E(15)))*sc_mag(15-1)+...  %15
-% sum(real(F(15,[1:14,16]))./transpose(abs(E([1:14,16]))))*sc_mag(7-1)+...  %1:14,16
-% sum(-sum(imag(F(15,:))) - imag(F(15,15)))*sc_ang(15-1)+...  %15
-% sum(imag(F(15,[1:14,16])))*sc_ang(7-1)+... %1:14,16
-% sum(-real(F(17,[18:20]))./transpose(abs(E([18:20]))))*sc_mag(19-1) %18:20
+% sum(sum(real(F(15,:)))/abs(E(15)) + real(F(15,15))/abs(E(15)))*sc_real(15-1)+...  %15
+% sum(real(F(15,[1:14,16]))./transpose(abs(E([1:14,16]))))*sc_real(7-1)+...  %1:14,16
+% sum(-sum(imag(F(15,:))) - imag(F(15,15)))*sc_imag(15-1)+...  %15
+% sum(imag(F(15,[1:14,16])))*sc_imag(7-1)+... %1:14,16
+% sum(-real(F(17,[18:20]))./transpose(abs(E([18:20]))))*sc_real(19-1) %18:20
 % 
-% sum(sum(real(F(17,:)))/abs(E(17)) + real(F(17,17))/abs(E(17)))*sc_mag(17-1) %17
+% sum(sum(real(F(17,:)))/abs(E(17)) + real(F(17,17))/abs(E(17)))*sc_real(17-1) %17
 % 
 % 
 % %validated -> eq3 is correct
@@ -434,13 +467,13 @@ Time.A = toc(T);
 % %% eq 4
 % 
 % sc = complex(J_QR(:,14),J_QX(:,14))
-% sc_mag = 1./abs(E(2:end)) .* real(conj(E(2:end)) .* sc)
-% sc_ang = 1./abs(E(2:end)).^2 .* imag(conj(E(2:end)) .* sc)
+% sc_real = 1./abs(E(2:end)) .* real(conj(E(2:end)) .* sc)
+% sc_imag = 1./abs(E(2:end)).^2 .* imag(conj(E(2:end)) .* sc)
 % 
-% (sum(imag(F(15,:)))/abs(E(15)) + imag(F(15,15))/abs(E(15)))*sc_mag(15-1)+... %15
-% sum(imag(F(15,[1:14,16]))./transpose(abs(E([1:14,16]))))*sc_mag(7-1)+... %1:14,16
-% (sum(real(F(15,:))) - real(F(15,15)))*sc_ang(15-1)+... %15
-% sum(-real(F(15,[1:14,16])))*sc_ang(7-1) %1:14,16
+% (sum(imag(F(15,:)))/abs(E(15)) + imag(F(15,15))/abs(E(15)))*sc_real(15-1)+... %15
+% sum(imag(F(15,[1:14,16]))./transpose(abs(E([1:14,16]))))*sc_real(7-1)+... %1:14,16
+% (sum(real(F(15,:))) - real(F(15,15)))*sc_imag(15-1)+... %15
+% sum(-real(F(15,[1:14,16])))*sc_imag(7-1) %1:14,16
 % 
 % %validated -> sum = -1
 % A4 = [ A41 A42 A43 A44 A45]
@@ -449,11 +482,11 @@ Time.A = toc(T);
 % %% eq 5
 % 
 % sc = complex(J_PR(:,14),J_PX(:,14))
-% sc_mag = 1./abs(E(2:end)) .* real(conj(E(2:end)) .* sc)
-% sc_ang = 1./abs(E(2:end)).^2 .* imag(conj(E(2:end)) .* sc)
+% sc_real = 1./abs(E(2:end)) .* real(conj(E(2:end)) .* sc)
+% sc_imag = 1./abs(E(2:end)).^2 .* imag(conj(E(2:end)) .* sc)
 % 
-% (sum(real(F(19,:)))/abs(E(19)) + real(F(19,19))/abs(E(19)))*sc_mag(19-1)+... %15
-% sum(real(F(19,[17,18,20]))./transpose(abs(E([17,18,20])))).*sc_mag([17,18,20]-1) %1:14,16
+% (sum(real(F(19,:)))/abs(E(19)) + real(F(19,19))/abs(E(19)))*sc_real(19-1)+... %15
+% sum(real(F(19,[17,18,20]))./transpose(abs(E([17,18,20])))).*sc_real([17,18,20]-1) %1:14,16
 % 
 % %validated -> sum = 1
 % A5 = [ A51 A52 A53 A54 A55]
@@ -475,15 +508,14 @@ for id_x = 1:length(idxCtrl)
     
     % Identify node-type of idxCtrl [1: slack, 2: pq, 3: qv]
      node_type = 1*sum( idxCtrl(id_x) == idx.slack ) + ...
-                 2*sum( idxCtrl(id_x) == idx.pqac) + ...
+                 2*sum( idxCtrl(id_x) == idx.pqac ) + ...
                  3*sum( idxCtrl(id_x) == idx.pvac ) + ...
                  4*sum( idxCtrl(id_x) == idx.pdc ) + ...
                  5*sum( idxCtrl(id_x) == idx.vdc ) + ...
-                 6*sum( idxCtrl(id_x) == idx.vscac_pq ) + ...%                  8*sum( idxCtrl(id_x) == idx.vscac_pq ) + ...
-                 7*sum( idxCtrl(id_x) == idx.vscac_vq_v ) + ...
-                 8*sum( idxCtrl(id_x) == idx.vscac_vq_q ) + ...
-                 9*sum( idxCtrl(id_x) == idx.vscdc_pq ) + ...
-                 10*sum( idxCtrl(id_x) == idx.vscdc_vq );
+                 6*sum( idxCtrl(id_x) == idx.vscac_pq ) + ...
+                 7*sum( idxCtrl(id_x) == idx.vscac_vq ) + ...
+                 8*sum( idxCtrl(id_x) == idx.vscdc_pq ) + ...
+                 9*sum( idxCtrl(id_x) == idx.vscdc_vq ); 
     for ctrl_var = 1:2
        
      T = tic;   
@@ -519,7 +551,7 @@ for id_x = 1:length(idxCtrl)
                  % Do nothing as derivative is zero
              end
              
-         case 10 % VSCdc_vq node
+         case 9 % VSCdc_vq node
              if (ctrl_var == 1) 
                  K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % magnitude
              elseif (ctrl_var == 1) 
@@ -537,15 +569,13 @@ for id_x = 1:length(idxCtrl)
                 u1 = [- dP_real(idx.pqac,tmp_idx);
                       - dQ_real(idx.pqac,tmp_idx)];
                 u2 = [- dP_real(idx.pvac,tmp_idx);
-                      - dV_imag(idx.pvac,tmp_idx)];
+                      - dV_real(idx.pvac,tmp_idx)];
                 u3 = [- dP_real(idx.pdc,tmp_idx)];
                 u4 = [- dVdc(idx.vdc,tmp_idx)];
-                u5 = [- dP_real(idx.vscac_pq,tmp_idx);
-                      - dQ_real(idx.vscac_pq,tmp_idx)];
-                u6a = [- dV_real(idx.vscac_vq_v,tmp_idx);
-                      - dQ_real(idx.vscac_vq_v,tmp_idx)];
-                u6b = [- dV_real(idx.vscac_vq_q,tmp_idx);
-                      - dQ_real(idx.vscac_vq_q,tmp_idx)];             
+                u5 = [- dP_sym_real(idx.vscac_pq,tmp_idx);
+                      - dQ_sym_real(idx.vscac_pq,tmp_idx)];
+                u6 = [- dV_sym_real(idx.vscac_vq,tmp_idx);
+                      - dQ_sym_real(idx.vscac_vq,tmp_idx)];
                 u7 = [- dP_real(idx.vscdc_pq,tmp_idx)];
              elseif (ctrl_var == 2) 
                 u1 = [- dP_imag(idx.pqac,tmp_idx);
@@ -554,12 +584,10 @@ for id_x = 1:length(idxCtrl)
                       - dV_imag(idx.pvac,tmp_idx)];
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
-                u5 = [- dP_imag(idx.vscac_pq,tmp_idx);
-                      - dQ_imag(idx.vscac_pq,tmp_idx)];
-                u6a = [- dV_real(idx.vscac_vq_v,tmp_idx);
-                      - dQ_imag(idx.vscac_vq_v,tmp_idx)];
-                u6b = [- dV_real(idx.vscac_vq_q,tmp_idx);
-                      - dQ_imag(idx.vscac_vq_q,tmp_idx)];
+                u5 = [- dP_sym_imag(idx.vscac_pq,tmp_idx);
+                      - dQ_sym_imag(idx.vscac_pq,tmp_idx)];
+                u6 = [- dV_sym_imag(idx.vscac_vq,tmp_idx);
+                      - dQ_sym_imag(idx.vscac_vq,tmp_idx)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              end
              
@@ -573,10 +601,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);                      
@@ -587,14 +613,11 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              end
-          
-
+             
           case 3 % pvac node
              if (ctrl_var == 1) % if X = P0^{\phi}_{0,l}
                 u1 = [zeros(length(idx.pqac),1);
@@ -605,24 +628,20 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];      
              elseif (ctrl_var == 2)
                 u1 = [zeros(length(idx.pqac),1);
                       zeros(length(idx.pqac),1)];
                 u2 = [zeros(length(idx.pvac),1);
-                      -dP_real(idx.pvac,tmp_idx)];
+                      -dP_imag(idx.pvac,tmp_idx)];
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];     
              end  
              
@@ -636,10 +655,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);
@@ -650,10 +667,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
               end
               
@@ -667,10 +682,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [-dP_real(idx.vdc,tmp_idx)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);
@@ -681,10 +694,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
               end
               
@@ -696,12 +707,10 @@ for id_x = 1:length(idxCtrl)
                       zeros(length(idx.pvac),1)];
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
-                u5 = [-dV_real(idx.vscac_pq,tmp_idx);
+                u5 = [-dV_sym_real(idx.vscac_pq,tmp_idx);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);                      
@@ -711,15 +720,13 @@ for id_x = 1:length(idxCtrl)
                 u3 = [zeros(length(idx.pdc),1)];
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
-                      -dV_imag(idx.vscac_pq,tmp_idx)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                      -dV_sym_imag(idx.vscac_pq,tmp_idx)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              end
-
-           case 7 % vscac_vq_v node
+             
+          case 7 % vscac_vq node
               if (ctrl_var == 1) 
                 u1 = [zeros(length(idx.pqac),1);
                       zeros(length(idx.pqac),1)];
@@ -729,10 +736,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);                      
@@ -743,45 +748,12 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)]; 
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      -dV_imag(idx.vscac_vq_v,tmp_idx)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      -dV_sym_imag(idx.vscac_vq,tmp_idx)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
               end
-              
-             case 8 % vscac_vq_q node
-              if (ctrl_var == 1) 
-                u1 = [zeros(length(idx.pqac),1);
-                      zeros(length(idx.pqac),1)];
-                u2 = [zeros(length(idx.pvac),1);
-                      zeros(length(idx.pvac),1)];
-                u3 = [zeros(length(idx.pdc),1)];
-                u4 = [zeros(length(idx.vdc),1)];
-                u5 = [zeros(length(idx.vscac_pq),1);
-                      zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [-dV_real(idx.vscac_vq_q,tmp_idx);
-                      zeros(length(idx.vscac_vq_q),1)];
-                u7 = [zeros(length(idx.vscdc_pq),1)];
-             elseif (ctrl_var == 2) 
-                u1 = [zeros(length(idx.pqac),1);                      
-                      zeros(length(idx.pqac),1)];
-                u2 = [zeros(length(idx.pvac),1);
-                      zeros(length(idx.pvac),1)];
-                u3 = [zeros(length(idx.pdc),1)];
-                u4 = [zeros(length(idx.vdc),1)];
-                u5 = [zeros(length(idx.vscac_pq),1);
-                      zeros(length(idx.vscac_pq),1)]; 
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      -dV_imag(idx.vscac_vq_q,tmp_idx)];
-                u7 = [zeros(length(idx.vscdc_pq),1)];
-              end
-              
-          case 9 % vscdc_pq mode
+             
+          case 8 % vscdc_pq mode
              if (ctrl_var == 1) 
                 u1 = [zeros(length(idx.pqac),1);
                       zeros(length(idx.pqac),1)];
@@ -791,10 +763,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [-dV_real(idx.vscdc_pq,tmp_idx)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);
@@ -805,14 +775,12 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              end
               
-          case 10 % vscdc_vq node
+          case 9 % vscdc_vq node
               if (ctrl_var == 1) 
                 index_vsc_v = repmat(idx.vscdc_vq,1,n_ph)';
                 u1 = [zeros(length(idx.pqac),1);
@@ -823,10 +791,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [-dP_real(index_vsc_v,tmp_idx);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [-dP_sym_real(index_vsc_v,tmp_idx);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
                 u1 = [zeros(length(idx.pqac),1);                      
@@ -837,10 +803,8 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6a = [zeros(length(idx.vscac_vq_v),1);
-                      zeros(length(idx.vscac_vq_v),1)];
-                u6b = [zeros(length(idx.vscac_vq_q),1);
-                      zeros(length(idx.vscac_vq_q),1)];
+                u6 = [zeros(length(idx.vscac_vq),1);
+                      zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
               end
               
@@ -851,7 +815,7 @@ for id_x = 1:length(idxCtrl)
 
      
      %% Solve A*x(X)=u(X) 
-     u = [u1;u2;u3;u4;u5;u6a;u6b;u7];
+     u = [u1;u2;u3;u4;u5;u6;u7];
      x = linsolve(A,u);
    
      
@@ -861,10 +825,9 @@ for id_x = 1:length(idxCtrl)
      %K{id_x,3}{ctrl_var,1}(idx.pvac,1) =       %Already good; 
      K{id_x,3}{ctrl_var,1}(idx.pdc,1) =      x( 2*length(idx.pqac) + 2*length(idx.pvac) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) ); 
      %K{id_x,3}{ctrl_var,1}(idx.vdc,1) =        %Already good
-     K{id_x,3}{ctrl_var,1}(idx.vscac_pq,1) =   x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) );
-     K{id_x,3}{ctrl_var,1}(idx.vscac_vq_v,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq_v) );
-     K{id_x,3}{ctrl_var,1}(idx.vscac_vq_q,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) + length(idx.vscac_vq_q) );
-     K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =   x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) + 2*length(idx.vscac_vq_q) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) + 2*length(idx.vscac_vq_q) + length(idx.vscdc_pq) );
+     K{id_x,3}{ctrl_var,1}(idx.vscac_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) );
+     K{id_x,3}{ctrl_var,1}(idx.vscac_vq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq) );
+     K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) + length(idx.vscdc_pq) );
      % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =  %Already good (not taken into account)
      
      
@@ -875,13 +838,14 @@ for id_x = 1:length(idxCtrl)
      %K{id_x,4}{ctrl_var,1}(idx.pdc,1) =        %DC quantity, angle does not exists 
      %K{id_x,4}{ctrl_var,1}(idx.vdc,1) =        %DC quantity, angle does not exists
      K{id_x,4}{ctrl_var,1}(idx.vscac_pq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + length(idx.vscac_pq) + 1: 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) );
-     K{id_x,4}{ctrl_var,1}(idx.vscac_vq_v,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq_v) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) );
-     K{id_x,4}{ctrl_var,1}(idx.vscac_vq_q,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) + length(idx.vscac_vq_q) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq_v) + 2*length(idx.vscac_vq_q));
+     K{id_x,4}{ctrl_var,1}(idx.vscac_vq,1) = x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) );
      % K{id_x,4}{ctrl_var,1}(idx.vscdc_pq,1) =  %DC quantity, angle does not exists 
      % K{id_x,4}{ctrl_var,1}(idx.vscdc_pq,1) =  %DC quantity, angle does not exists
 
      % Infer complex nodal voltage SCs 
-     K{id_x,2}{ctrl_var,1}(:,1) = complex(K{id_x,3}{ctrl_var,1}(:,1) , K{id_x,4}{ctrl_var,1}(:,1)); %E.*( (1./abs(E)).*K{id_x,3}{ctrl_var,1}(:,1) + 1i*K{id_x,4}{ctrl_var,1}(:,1) );
+     
+     K{id_x,2}{ctrl_var,1}(:,1) = complex(K{id_x,3}{ctrl_var,1}(:,1) , K{id_x,4}{ctrl_var,1}(:,1)); %
+%      K{id_x,2}{ctrl_var,1}(:,1) = E.*( (1./abs(E)).*K{id_x,3}{ctrl_var,1}(:,1) + 1i*K{id_x,4}{ctrl_var,1}(:,1) );
      
      % Time
      Time.K = [Time.K; toc(T)];

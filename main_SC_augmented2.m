@@ -1,7 +1,7 @@
 %% main script for linear power system state estimation
 
-% clear all;
-% close all;
+clear all;
+close all;
 clc;
 
 addpath(genpath(pwd))
@@ -197,17 +197,17 @@ S_star2 = mean([transpose(complex(Nodal_P(z2,:), Nodal_Q(z2,:))); transpose(comp
 
 
 alp = exp(2*pi/3*1i);
-A = [1 1     1; 
+A = 1/3*[1 1     1; 
          1 alp   alp^2; 
          1 alp^2 alp];
-ACell =  repmat({A}, 1, Grid_para.n_ac+8);
+ACell =  repmat({A}, 1, Grid_para.n_ac+4);
 ICell =  repmat({1}, 1, Grid_para.n_dc); 
 Atot = blkdiag(ACell{:},ICell{:});
 
 
 
 %% Augment YY to include the filter and IGBT losses into the admitance matrix
-type = 1;
+type = 0
 [Yac_augmented, A_augmented, Zloss,Zfilter] = include_losses_filter_in_Y('linedata_AC.txt',Grid_para,Filter_para,idx1,E_star,type);
 Yac_augmented = cell2mat(arrayfun(@(x) x*eye(Grid_para.n_ph),Yac_augmented,'UniformOutput',false));
 YY_augmented = blkdiag(Yac_augmented,Ydc);
@@ -217,22 +217,18 @@ Grid_para_augmented = Grid_para;
 Grid_para_augmented.YY = YY_augmented;
 Grid_para_augmented.Yac = Yac_augmented;
 Grid_para_augmented.Ydc = Ydc;
-Grid_para_augmented.n_ac = 18+4+4;
+Grid_para_augmented.n_ac = 18+4;
 Grid_para_augmented.n_nodes = Grid_para_augmented.n_ac*Grid_para_augmented.n_ph + Grid_para_augmented.n_dc;
 
 %% Augment E_star and S_star to include the filter and IGBT losses into the admitance matrix
 Zloss = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zloss,'UniformOutput',false));
 Zfilter = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zfilter,'UniformOutput',false));
 
-E_augment_loss = E_star(sort([idx3.vscac_pq;idx3.vscac_vq])) + Zloss.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
-E_augment_filter = E_augment_loss.*(1+ Zfilter*0) + Zfilter.*(conj(real(S_star(sort([idx3.vscac_pq;idx3.vscac_vq]))) ./ E_star(sort([idx3.vscac_pq;idx3.vscac_vq]))));
+E_augment_loss = E_star(sort([idx3.vscac_pq;idx3.vscac_vq])) + (Zloss+Zfilter).*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
+E_star_augmented = [E_star(1:Grid_para.n_ac*Grid_para.n_ph); E_augment_loss; E_star(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
 
-E_star_augmented = [E_star(1:Grid_para.n_ac*Grid_para.n_ph); E_augment_loss; E_augment_filter; E_star(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
-
-E_2_augment_loss = E_star2(sort([idx3.vscac_pq;idx3.vscac_vq])) + Zloss.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star2);
-E_2_augment_filter = E_2_augment_loss.*(1+ Zfilter*0) + Zfilter.*(conj(real(S_star2(sort([idx3.vscac_pq;idx3.vscac_vq]))) ./ E_star2(sort([idx3.vscac_pq;idx3.vscac_vq]))));
-
-E_star2_augmented = [E_star2(1:Grid_para.n_ac*Grid_para.n_ph); E_2_augment_loss; E_2_augment_filter; E_star2(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
+E_2_augment_loss = E_star2(sort([idx3.vscac_pq;idx3.vscac_vq])) + (Zloss+Zfilter).*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star2);
+E_star2_augmented = [E_star2(1:Grid_para.n_ac*Grid_para.n_ph); E_2_augment_loss; E_star2(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
 
 
 % S_star(sort([idx3.vscac_pq;idx3.vscac_vq])) = 1i*imag(S_star(sort([idx3.vscac_pq;idx3.vscac_vq])));
@@ -249,19 +245,19 @@ idx1_augmented.pqac = [2:18]';
 % idx1_augmented.pqac_q = [2:18]';
 idx1_augmented.pvac = []';
 
-idx1_augmented.pdc = [31:34]';
+idx1_augmented.pdc = [27:30]';
 idx1_augmented.vdc = []';
 
 idx1_augmented.vscac_pq = []';
 idx1_augmented.vscac_pq_p = []';
 idx1_augmented.vscac_pq_q = []';
 
-idx1_augmented.vscac_vq = []';
-idx1_augmented.vscac_vq_v = [23:26]';
-idx1_augmented.vscac_vq_q = [19:22]';
+idx1_augmented.vscac_vq = [19:22]';
+idx1_augmented.vscac_vq_v = []';
+idx1_augmented.vscac_vq_q = []';
 
 idx1_augmented.vscdc_pq = []';
-idx1_augmented.vscdc_vq = [27:30]';
+idx1_augmented.vscdc_vq = [23:26]';
 
 idx3_augmented = Get_multiphase_Node_indices(idx1_augmented,Grid_para_augmented);
 
@@ -278,10 +274,10 @@ idxCtrl = 1:Grid_para_augmented.n_nodes;
 
 % [K, Time] = SC_Voltage_V6_balanced_losses(S_star,E_star_augmented,idx1_augmented,idx3_augmented,Grid_para_augmented,Filter_para,idxCtrl,unblanced_3ph,filter);
 % [K, Time] = SC_Voltage_V6_rectangular_losses(S_star,E_star_augmented,idx1_augmented,idx3_augmented,Grid_para_augmented,Filter_para,idxCtrl,unblanced_3ph,filter);
-[K, Time] = SC_Voltage_V6_rectangular_unbalanced_losses_split(S_star,E_star_augmented,idx1_augmented,idx3_augmented,Grid_para_augmented,Filter_para,idxCtrl,unblanced_3ph,filter);
+[K, Time] = SC_Voltage_V6_rectangular_unbalanced_losses(S_star,E_star_augmented,idx1_augmented,idx3_augmented,Grid_para_augmented,Filter_para,idxCtrl,unblanced_3ph,filter);
 
-idx3_augmented.pqac_p = sort([idx3_augmented.pqac;idx3_augmented.vscac_vq_q]);
-idx3_augmented.pqac_q = sort([idx3_augmented.pqac;idx3_augmented.vscac_vq_v]);
+% idx3_augmented.pqac_p = sort([idx3_augmented.pqac;idx3_augmented.vscac_vq_q]);
+% idx3_augmented.pqac_q = sort([idx3_augmented.pqac;idx3_augmented.vscac_vq_v]);
 J_PR = zeros(Grid_para_augmented.n_nodes);
 J_PX = zeros(Grid_para_augmented.n_nodes);
 J_QR = zeros(Grid_para_augmented.n_nodes);
@@ -312,12 +308,7 @@ for k = 1:size(K,1)
         J_PX(:,k) = imag(K{k,2}{1,1});
         J_QR(:,k) = real(K{k,2}{2,1});
         J_QX(:,k) = imag(K{k,2}{2,1});
-    elseif( sum( K{k,1} == idx3_augmented.vscac_vq_v ))
-        J_PR(:,k) = real(K{k,2}{1,1});
-        J_PX(:,k) = imag(K{k,2}{1,1});
-        J_QR(:,k) = real(K{k,2}{2,1});
-        J_QX(:,k) = imag(K{k,2}{2,1});
-    elseif( sum( K{k,1} == idx3_augmented.vscac_vq_q ))
+    elseif( sum( K{k,1} == idx3_augmented.vscac_vq ))
         J_PR(:,k) = real(K{k,2}{1,1});
         J_PX(:,k) = imag(K{k,2}{1,1});
         J_QR(:,k) = real(K{k,2}{2,1});
@@ -340,16 +331,16 @@ switch mode
 case 'P23'
     
     i = Grid_para.n_ac*(Grid_para.n_ph -1) + 23; 
-    i_augmented = Grid_para_augmented.n_ac*(Grid_para_augmented.n_ph -1) + 31; %31
-    r = complex(J_PR(:,i_augmented),J_PX(:,i_augmented)).*multiplier;
+    i_augmented = idx3_augmented.pdc(1);% Grid_para_augmented.n_ac*(Grid_para_augmented.n_ph -1) + 27; %31
+    r = complex(J_PR(:,i_augmented),J_PX(:,i_augmented));
     c = (E_star_augmented-E_star2_augmented)/real(S_star(i)-S_star2(i));
     
 case 'E22'
     
     i = Grid_para.n_ac*(Grid_para.n_ph -1) + 22; 
-    i_augmented = Grid_para_augmented.n_ac*(Grid_para_augmented.n_ph -1) + 30; %30
-    r = complex(J_VR(:,i_augmented),J_VX(:,i_augmented)).*multiplier;
-    c = (E_star_augmented-E_star2_augmented)/real(E_star(i)-E_star2(i));
+    i_augmented = idx3_augmented.vscdc_vq(4); %Grid_para_augmented.n_ac*(Grid_para_augmented.n_ph -1) + 26; %30
+    r = complex(J_VR(:,i_augmented),J_VX(:,i_augmented));
+    c = (E_star_augmented-E_star2_augmented)/real(E_star_augmented(i_augmented)-E_star2_augmented(i_augmented));
     x_rec = [real(c(1:54));imag(c(1:54));real(c(55:end))];
     
 case 'Q18'
@@ -364,7 +355,7 @@ case 'Q9'
     i = polyphase_indices(9,Grid_para_augmented.n_ph);
     r = complex(sum(J_QR(:,i),2),sum(J_QX(:,i),2));
     c = (E_star_augmented-E_star2_augmented)/imag(S_star(i(1))-S_star2(i(1)));
-
+%     x_rec = [real(c(1:54));imag(c(1:54));real(c(55:end))];
     
 case 'P9'
     

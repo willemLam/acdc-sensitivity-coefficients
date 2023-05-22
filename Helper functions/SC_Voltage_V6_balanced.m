@@ -295,9 +295,9 @@ A62 = [zeros(length(idx.vscac_vq),length(idx.pvac)) dP_ang(idx.vscac_vq,idx.pvac
        zeros(length(idx.vscac_vq),length(idx.pvac)) dQ_ang(idx.vscac_vq,idx.pvac)];
 % A63   Edc (idx.pdc)
 
-index_vsc_v = repmat(idx.vscdc_vq,1,n_ph)';
-A63 = [dP_mag(index_vsc_v,idx.pdc); %!!!! maybe x and y have to be swapped
-       dQ_mag(index_vsc_v,idx.pdc)];
+index_vsc = repmat(idx.vscdc_vq,1,n_ph)';
+A63 = [dP_mag(index_vsc,idx.pdc); %!!!! maybe x and y have to be swapped
+       dQ_mag(index_vsc,idx.pdc)];
 % A64   Pdc (idx.vdc)
 A64 = [zeros(length(idx.vscac_vq),length(idx.vdc));
        zeros(length(idx.vscac_vq),length(idx.vdc))];

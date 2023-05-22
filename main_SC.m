@@ -159,16 +159,17 @@ Atot*E_star;
 
 
 %% Augment YY to include the filter and IGBT losses into the admitance matrix
-[Yac_augmented, A_augmented, Zloss,Zfilter] = include_losses_filter_in_Y('linedata_AC.txt',Grid_para,Filter_para,idx1,E_star);
+type = 0
+[Yac_augmented, A_augmented, Zloss,Zfilter] = include_losses_filter_in_Y('linedata_AC.txt',Grid_para,Filter_para,idx1,E_star,type);
 Yac_augmented = cell2mat(arrayfun(@(x) x*eye(Grid_para.n_ph),Yac_augmented,'UniformOutput',false));
 YY_augmented = blkdiag(Yac_augmented,Ydc);
 
 %% Augment E_star and S_star to include the filter and IGBT losses into the admitance matrix
-Zloss = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zloss,'UniformOutput',false))
-Zfilter = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zfilter,'UniformOutput',false))
+Zloss = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zloss,'UniformOutput',false));
+Zfilter = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zfilter,'UniformOutput',false));
 
 E_augment_loss = E_star(sort([idx3.vscac_pq;idx3.vscac_vq])) + Zloss.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
-E_augment_filter = E_augment_loss.*(1+ Zfilter*0) + Zfilter.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star)
+E_augment_filter = E_augment_loss.*(1+ Zfilter*0) + Zfilter.*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
 
 E_star_augmented = [E_star(1:Grid_para.n_ac*Grid_para.n_ph); E_augment_loss; E_augment_filter; E_star(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
 
@@ -187,6 +188,9 @@ idxCtrl = 1:Grid_para.n_nodes;
 % [K, Time] = SC_Voltage_V5_3(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
 [K, Time] = SC_Voltage_V6_balanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
 % [K, Time] = SC_Voltage_V6_balanced_losses(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter)
+[K, Time] = SC_Voltage_V6_rectangular_balanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
+[K, Time] = SC_Voltage_V6_rectangular_unbalanced(S_star,E_star,idx1,idx3,Grid_para,Filter_para,idxCtrl,unblanced_3ph,filter);
+
 
 J_PR = zeros(Grid_para.n_nodes);
 J_PX = zeros(Grid_para.n_nodes);
@@ -270,7 +274,7 @@ end
 
 %% make plot
 
-f = Make_scatter_plot(r,c,Grid_para.n_nodes,mode)
+f = Make_scatter_plot(r,c,Grid_para.n_nodes,mode);
 
 % folder = './Plots/figures';
 % saveas(f,[folder filesep() strcat('SC_for_X_',mode)],'epsc');
