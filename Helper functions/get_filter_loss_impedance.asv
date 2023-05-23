@@ -33,6 +33,11 @@ function [Zloss,Zfilter] = get_filter_loss_impedance(Grid_para,Filter_para,E_sta
     R_eq(isnan(R_eq))=0;
     R_eq(isinf(R_eq))=0;
 
+    if Filter_para.Exclude_losses
+        R = 0;
+        R_eq = 0;
+        X = 0;
+    end    
 
     Zloss = R_eq.*Filter_para.Include_losses;
     Zfilter = repmat(complex(R,X),n_AFE,1);
