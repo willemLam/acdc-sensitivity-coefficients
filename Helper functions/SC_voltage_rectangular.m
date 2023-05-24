@@ -331,7 +331,7 @@ for id_x = 1:length(idxCtrl)
                  % Do nothing as derivative is zero
              end
              
-         case 10 % VSCdc_vq node
+         case 9 % VSCdc_vq node
              if (ctrl_var == 1) 
                  K{id_x,3}{ctrl_var,1}(tmp_idx,1) = 1; % real
              elseif (ctrl_var == 1) 
