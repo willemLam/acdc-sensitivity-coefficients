@@ -16,7 +16,7 @@ function [Zloss,Zfilter] = get_filter_loss_impedance(Grid_para,Filter_para,E_sta
     G = Grid_para.G;
     B = Grid_para.B;
     Y = complex(G,B);
-    I_b=A_b/(V_b.*sqrt(3));
+    I_b=A_b/(V_b);
     alp = exp(2*pi/3*1i);
     A = 1/3*[1 1     1; 
              1 alp   alp^2; 
@@ -28,7 +28,9 @@ function [Zloss,Zfilter] = get_filter_loss_impedance(Grid_para,Filter_para,E_sta
 
     Imag = abs(Y(pos_ac3(:,1),:)*Atot*E_star);
     Imag = Imag(2:3:end);
-    R_eq_ctu = interp1(Filter_para.IGBT_piecewise(:,1),Filter_para.IGBT_piecewise(:,2),Imag*I_b)./Grid_para.V_b./Imag;
+%     R_eq_ctu = interp1(Filter_para.IGBT_piecewise(:,1),Filter_para.IGBT_piecewise(:,2),Imag*I_b)./Grid_para.V_b./Imag;
+    R_eq_ctu = interp1(Filter_para.IGBT_piecewise(:,1),Filter_para.IGBT_piecewise(:,2),Imag*sqrt(2)*I_b)./Grid_para.V_b./(Imag/sqrt(3)*sqrt(2));
+  
     R_eq = (R_eq_ctu*4/pi); 
     R_eq(isnan(R_eq))=0;
     R_eq(isinf(R_eq))=0;

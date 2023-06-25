@@ -4,7 +4,7 @@ function [YY, YYL, YL, YT, YYT, I_b, Ampacities, y_ih, y_i, A, linedata]  = make
     A_b = Grid_para.A_b;
     n_ac = Grid_para.n_ac;
     n_dc = Grid_para.n_dc;
-    linedata = load (Text);
+    linedata = load(Text);
 
 
     I_b=A_b/(V_b.*sqrt(3));
@@ -67,6 +67,7 @@ function [YY, YYL, YL, YT, YYT, I_b, Ampacities, y_ih, y_i, A, linedata]  = make
         end    
 
     end
+    
     n_lines=length(linedata(:,1));                          %%%number of lines
     n_nodes=max(max(linedata(:,1)),max(linedata(:,2))); %%%number of nodes
 
