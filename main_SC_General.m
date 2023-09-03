@@ -135,28 +135,33 @@ ICell =  repmat({1}, 1, Grid_para.n_dc);
 Atot = blkdiag(ACell{:},ICell{:});
 
 %% Augment YY to include the filter and IGBT losses into the admitance matrix
+
+
+% 
 type = 0; %equivalent PI with filter and losses
 [Yac_augmented, A_augmented, Zloss,Zfilter,linedata1] = include_losses_filter_in_Y('linedata_AC.txt',Grid_para,Filter_para,idx1,E_star,type);
-Yac_augmented = cell2mat(arrayfun(@(x) x*eye(Grid_para.n_ph),Yac_augmented,'UniformOutput',false));
-YY_augmented = blkdiag(Yac_augmented,Ydc);
-
-Grid_para_augmented = Grid_para;
-
-Grid_para_augmented.YY = YY_augmented;
-Grid_para_augmented.Yac = Yac_augmented;
-Grid_para_augmented.Ydc = Ydc;
-Grid_para_augmented.n_ac = 18+Grid_para_augmented.n_AFE; %Every AFE gets one extra virtual node
-Grid_para_augmented.n_nodes = Grid_para_augmented.n_ac*Grid_para_augmented.n_ph + Grid_para_augmented.n_dc;
-
-%% Augment E_star and S_star to include the filter and IGBT losses into the admitance matrix
+% Yac_augmented = cell2mat(arrayfun(@(x) x*eye(Grid_para.n_ph),Yac_augmented,'UniformOutput',false));
+% YY_augmented = blkdiag(Yac_augmented,Ydc);
+% 
+% Grid_para_augmented = Grid_para;
+% 
+% Grid_para_augmented.YY = YY_augmented;
+% Grid_para_augmented.Yac = Yac_augmented;
+% Grid_para_augmented.Ydc = Ydc;
+% Grid_para_augmented.n_ac = 18+Grid_para_augmented.n_AFE; %Every AFE gets one extra virtual node
+% Grid_para_augmented.n_nodes = Grid_para_augmented.n_ac*Grid_para_augmented.n_ph + Grid_para_augmented.n_dc;
+% 
+% %% Augment E_star and S_star to include the filter and IGBT losses into the admitance matrix
 Zloss = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zloss,'UniformOutput',false));
 Zfilter = cell2mat(arrayfun(@(x) x*ones(Grid_para.n_ph,1),Zfilter,'UniformOutput',false));
-
-E_augment_loss = E_star(sort([idx3.vscac_pq;idx3.vscac_vq])) + (Zloss+Zfilter).*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
-E_star_augmented = [E_star(1:Grid_para.n_ac*Grid_para.n_ph); E_augment_loss; E_star(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
-
+% 
+% E_augment_loss = E_star(sort([idx3.vscac_pq;idx3.vscac_vq])) + (Zloss+Zfilter).*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star);
+% E_star_augmented = [E_star(1:Grid_para.n_ac*Grid_para.n_ph); E_augment_loss; E_star(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
+% 
 E_2_augment_loss = E_star2(sort([idx3.vscac_pq;idx3.vscac_vq])) + (Zloss+Zfilter).*(YY(sort([idx3.vscac_pq;idx3.vscac_vq]),:)*E_star2);
 E_star2_augmented = [E_star2(1:Grid_para.n_ac*Grid_para.n_ph); E_2_augment_loss; E_star2(Grid_para.n_ac*Grid_para.n_ph+1 : end)  ];
+
+[E_star_augmented, YY_augmented, Grid_para_augmented] = Augment_system_with_filter_n_losses(E_star, Grid_para, Filter_para, idx1);
 
 %% Augment indices
 idx1_augmented.slack = 1;

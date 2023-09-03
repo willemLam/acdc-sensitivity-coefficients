@@ -1,9 +1,9 @@
 function [K, Time] = SC_voltage_rectangular(E,idx,Grid_para,idxCtrl)
 
 %% For debugging purposes
-% E = E_star_augmented;
-% idx = idx3_augmented;
-% Grid_para = Grid_para_augmented;
+% E = E_star;
+% idx = idx1;
+% Grid_para = Grid_para;
 
 
 % the function computes analytically the SC of the nodes when one or more
@@ -47,16 +47,19 @@ dV_imag = eye(size(F));
 dVdc = -eye(size(F));% +  (dP_real - diag(diag(dP_real)));
 
 %% Unbalanced
-alp = exp(2*pi/3*1i);
-T_inv = 1/3*   [1 1     1; 
-                1 alp   alp^2; 
-                1 alp^2 alp];
-t_inv = [0;1;0];
-TCell =  repmat({T_inv}, 1, Grid_para.n_ac);
-tCell =  repmat({t_inv}, 1, Grid_para.n_ac);
-ICell =  repmat({1}, 1, Grid_para.n_dc); 
-Ttot = blkdiag(TCell{:},ICell{:});
-ttot = vertcat(tCell{:},ICell{:});
+
+if Grid_para.n_ph == 3
+    alp = exp(2*pi/3*1i);
+    T_inv = 1/3*   [1 1     1; 
+                    1 alp   alp^2; 
+                    1 alp^2 alp];
+    t_inv = [0;1;0];
+    TCell =  repmat({T_inv}, 1, Grid_para.n_ac);
+    tCell =  repmat({t_inv}, 1, Grid_para.n_ac);
+    ICell =  repmat({1}, 1, Grid_para.n_dc); 
+    Ttot = blkdiag(TCell{:},ICell{:});
+    ttot = vertcat(tCell{:},ICell{:});
+
 
 % sequence voltages
 dP_symE_real = real(Ttot);
@@ -114,6 +117,55 @@ dV_sym_imag = diag(ttot);
 
 dVdc_sym = -diag(ttot);
 dVdc_sym = dVdc;
+
+elseif Grid_para.n_ph == 1
+    T_inv = 1;
+    t_inv = 1;
+    TCell =  repmat({T_inv}, 1, Grid_para.n_ac);
+    tCell =  repmat({t_inv}, 1, Grid_para.n_ac);
+    ICell =  repmat({1}, 1, Grid_para.n_dc); 
+    Ttot = blkdiag(TCell{:},ICell{:});
+    ttot = vertcat(tCell{:},ICell{:});
+    
+    
+    
+    
+% sequence voltages
+dP_symE_real = real(Ttot);
+dP_symE_imag = -imag(Ttot);
+dQ_symE_real = imag(Ttot);
+dQ_symE_imag = real(Ttot);
+
+% sequence powers
+F_sym = conj(Grid_para.YY).*(Ttot*E);
+H_sym = diag(Grid_para.YY*(Ttot*E));
+
+for i = 1:n_ph:n_ac*n_ph
+    for j = 1:n_ph:n_ac*n_ph
+        F_sym(i:i+n_ph-1,j:j+n_ph-1) = inv(T_inv).*(transpose(sum(F_sym(i:i+n_ph-1,j:j+n_ph-1))) );
+        H_sym(i:i+n_ph-1,j:j+n_ph-1) = inv(T_inv).*(transpose(sum(H_sym(i:i+n_ph-1,j:j+n_ph-1))) );
+    end  
+end
+
+dP_sym_real = real(F_sym) + real(H_sym);
+dP_sym_imag = imag(F_sym) + imag(H_sym);
+dQ_sym_real = -imag(F_sym) + imag(H_sym);
+dQ_sym_imag = real(F_sym) - real(H_sym);
+    
+dP_symp_real = dP_sym_real;
+dP_symp_imag = dP_sym_imag;
+dQ_symp_real = dQ_sym_real;
+dQ_symp_imag = dQ_sym_imag;
+    
+
+dV_sym_real = -diag(ttot);
+dV_sym_imag = diag(ttot);
+
+dVdc_sym = -diag(ttot);
+dVdc_sym = dVdc;
+
+end   
+
 
 %% P - Q nodes
 % A11   Ereal, Eimag (idx.pqac)
@@ -225,8 +277,8 @@ A62 = [zeros(length(idx.vscac_vq),length(idx.pvac)) dP_symp_imag(idx.vscac_vq,id
        zeros(length(idx.vscac_vq),length(idx.pvac)) dQ_symp_imag(idx.vscac_vq,idx.pvac)];
 % A63   Edc (idx.pdc)
 index_vsc = repmat(idx.vscdc_vq,1,n_ph)';
-A63 = [dP_symp_real(index_vsc,idx.pdc).*repmat([0;1;0],length(idx.vscdc_vq),1); %!!!! maybe x and y have to be swapped
-        dQ_symp_real(idx.vscac_vq,idx.pdc).*repmat([0;1;0],length(idx.vscdc_vq),1)]; % ??
+A63 = [dP_symp_real(index_vsc,idx.pdc).*repmat(t_inv,length(idx.vscdc_vq),1); %!!!! maybe x and y have to be swapped
+        dQ_symp_real(idx.vscac_vq,idx.pdc).*repmat(t_inv,length(idx.vscdc_vq),1)]; % ??
 % A64   Pdc (idx.vdc)
 A64 = [zeros(length(idx.vscac_vq),length(idx.vdc));
        zeros(length(idx.vscac_vq),length(idx.vdc))];
@@ -571,7 +623,7 @@ for id_x = 1:length(idxCtrl)
                 u4 = [zeros(length(idx.vdc),1)];
                 u5 = [zeros(length(idx.vscac_pq),1);
                       zeros(length(idx.vscac_pq),1)];
-                u6 = [-dP_sym_real(index_vsc,tmp_idx).*repmat([0;1;0],length(idx.vscdc_vq),1);
+                u6 = [-dP_sym_real(index_vsc,tmp_idx).*repmat(t_inv,length(idx.vscdc_vq),1);
                       zeros(length(idx.vscac_vq),1)];
                 u7 = [zeros(length(idx.vscdc_pq),1)];
              elseif (ctrl_var == 2) 
