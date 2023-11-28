@@ -28,8 +28,11 @@ function [K, Time] = SC_voltage_rectangular(E,idx,Grid_para,idxCtrl)
 %% Construct A
 % Timing
 T = tic;
+T1 = tic;
 n_ph = Grid_para.n_ph;
 n_ac = Grid_para.n_ac;
+
+
 
 %% Balanced
 F = conj(Grid_para.YY).*E;
@@ -680,8 +683,11 @@ for id_x = 1:length(idxCtrl)
      
      % Time
      Time.K = [Time.K; toc(T)];
+     
 
     end
- end
+end
+ 
+Time.F = toc(T1);
 
 end

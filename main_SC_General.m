@@ -1,6 +1,6 @@
 %% main script for linear power system state estimation
 
-% clear all;
+%clear all;
 close all;
 % clc;
 
@@ -56,8 +56,8 @@ linedata = [linedata_ac;linedata_dc];
 Grid_para = Get_Converter_para(idx1,linedata,Grid_para);
 
 %% Set the filter parameters
-Filter_para.R = 0.016*Y_b; %checked 
-Filter_para.X = 0.000127325*2*pi*50*Y_b;  %checked
+Filter_para.R = 10e-4 + 0*0.016*Y_b; %checked 
+Filter_para.X = 10e-4 + 0*0.000127325*2*pi*50*Y_b;  %checked
 % Filter_para.R = 0.04*Y_b; %checked %0.08
 % Filter_para.X = 0.04*Y_b;  %checked
 Filter_para.IGBT_piecewise = [  0                   0
@@ -67,7 +67,7 @@ Filter_para.IGBT_piecewise = [  0                   0
                                 107.547461516782	0.8999
                                 735.837403888342	0.9499
                                 1588.01477341768	0.9699];
-Filter_para.Include_losses = 1;
+Filter_para.Include_losses = 0;
 
 %% Get the EMTP measurements
 repeat=1;
@@ -182,7 +182,15 @@ idx3_augmented = Get_multiphase_Node_indices(idx1_augmented,Grid_para_augmented)
 
 %% Compute SC
 idxCtrl = 1:Grid_para_augmented.n_nodes; %estimate all voltage sensitivity coefficients
+
 [K, Time] = SC_voltage_rectangular(E_star_augmented,idx3_augmented,Grid_para_augmented,idxCtrl);
+
+% time_ar = [];
+% for i = 1:100
+% [K, Time] = SC_voltage_rectangular(E_star_augmented,idx3_augmented,Grid_para_augmented,idxCtrl);
+% time_ar = [time_ar,Time.F];
+% end
+% mean(time_ar)
 
 J_PR = zeros(Grid_para_augmented.n_nodes);
 J_PX = zeros(Grid_para_augmented.n_nodes);
@@ -275,6 +283,9 @@ end
 %% Make figure
 f = Make_scatter_plot(r,c,Grid_para_augmented.n_nodes,mode);
 
+mean((abs(r) - abs(c)))*10000
+max((abs(r) - abs(c)))*10000
+min((abs(r) - abs(c)))*10000
 %% Save plot
 % folder = './Plots/figures';
 % saveas(f,[folder filesep() strcat('SC_for_X_',mode)],'epsc');

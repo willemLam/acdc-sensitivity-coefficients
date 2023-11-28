@@ -20,6 +20,10 @@ function [Nodal_V_mag,Nodal_V_angle, Nodal_I_mag, Nodal_I_angle, Flow_I_mag, Flo
     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/data_SC_6_balanced.mat'); % balanced + filter
     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/data_SC_3.mat'); % balanced + filter
     
+    %no filter, no loss
+    data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/data_SC_V2_2.mat'); % balanced 
+    data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/data_SC_V2_3.mat'); % unbalanced
+   
     
     max_range = floor(length(data.B01_Va_mag_control)/10)*10;
    
