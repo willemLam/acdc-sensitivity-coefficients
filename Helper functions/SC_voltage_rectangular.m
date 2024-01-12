@@ -56,7 +56,7 @@ if Grid_para.n_ph == 3
     T_inv = 1/3*   [1 1     1; 
                     1 alp   alp^2; 
                     1 alp^2 alp];
-    t_inv = [0;1;0];
+    t_inv = [0;3;0];
     TCell =  repmat({T_inv}, 1, Grid_para.n_ac);
     tCell =  repmat({t_inv}, 1, Grid_para.n_ac);
     ICell =  repmat({1}, 1, Grid_para.n_dc); 
@@ -319,7 +319,7 @@ A = [ A11 A12 A13 A14 A15 A16 A17; ...
       A51 A52 A53 A54 A55 A56 A57; ...
       A61 A62 A63 A64 A65 A66 A67; ...
       A71 A72 A73 A74 A75 A76 A77];
-A = A/3;
+  
 Time.A = toc(T);
 
 

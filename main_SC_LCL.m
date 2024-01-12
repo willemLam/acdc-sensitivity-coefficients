@@ -70,7 +70,7 @@ I_complex_LF = transpose(complex(Nodal_I_mag.*cos(Nodal_I_angle), Nodal_I_mag.*s
 Idc_LF = transpose(Idc_inj/2);
 
 % balanced
-modes = {'P23'}%;'E22';'Q18';'Q9';'P9'};
+modes = {'P23';'E22';'Q18'}%;'Q9';'P9'};
 % unbalaced
 % modes = {'P9';'Q9'};
 
@@ -162,7 +162,6 @@ for k = 1:size(K,1)
     end
 end
 
-multiplier = 1+ 0*[3*ones(length(E_star)-Grid_para.n_dc,1) ; ones(Grid_para.n_dc,1)];
 %% Analyse results
 disp(mode)
 switch mode
