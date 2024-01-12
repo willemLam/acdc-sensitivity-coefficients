@@ -1,8 +1,8 @@
 function [K, Time] = SC_voltage_rectangular(E,idx,Grid_para,idxCtrl)
 
 %% For debugging purposes
-% E = E_star_augmented;
-% idx = idx3_augmented;
+% E = E_star;
+% idx = idx3;
 % Grid_para = Grid_para_augmented;
 
 
@@ -264,7 +264,7 @@ A = [ A11 A12 A13 A14 A15 A16 A17; ...
       A51 A52 A53 A54 A55 A56 A57; ...
       A61 A62 A63 A64 A65 A66 A67; ...
       A71 A72 A73 A74 A75 A76 A77];
-
+A = A/3;
 Time.A = toc(T);
 
 

@@ -1,6 +1,6 @@
 %% main script for linear power system state estimation
 
-clear all;
+% clear all;
 close all;
 clc;
 
@@ -82,7 +82,7 @@ I_complex_LF = transpose(complex(Nodal_I_mag.*cos(Nodal_I_angle), Nodal_I_mag.*s
 Idc_LF = transpose(Idc_inj/2);
 
 % balanced
-modes = {'P23';'E22';'Q18';'Q9';'P9'};
+modes = {'P23'}%;'E22';'Q18';'Q9';'P9'};
 % unbalaced
 % modes = {'P9';'Q9'};
 
