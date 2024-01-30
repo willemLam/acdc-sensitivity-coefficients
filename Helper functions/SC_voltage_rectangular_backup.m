@@ -46,9 +46,9 @@ dQ_imag = real(F) - real(H);
 
 dV_real = -eye(size(F));% +  (dQ_real - diag(diag(dQ_real)));
 dV_imag = eye(size(F));
-dV_mag_real = 2*diag(real(E))/2;
-dV_mag_imag = 2*diag(imag(E))/2;
-dV_mag_mag = 2*diag(abs(E))/2;
+dV_mag_real = 2*diag(real(E));
+dV_mag_imag = 2*diag(imag(E));
+dV_mag_mag = 2*diag(abs(E));
 
 dVdc = -eye(size(F));% +  (dP_real - diag(diag(dP_real)));
 
@@ -178,8 +178,8 @@ end
 A11 = [dP_real(idx.pqac,idx.pqac) dP_imag(idx.pqac,idx.pqac);
        dQ_real(idx.pqac,idx.pqac) dQ_imag(idx.pqac,idx.pqac)];
 % A12   Q   ,angE (idx.pvac)
-A12 = [dP_real(idx.pqac,idx.pvac) dP_imag(idx.pqac,idx.pvac);
-       dQ_real(idx.pqac,idx.pvac) dQ_imag(idx.pqac,idx.pvac)];
+A12 = [zeros(length(idx.pqac),length(idx.pvac)) dP_imag(idx.pqac,idx.pvac);
+       zeros(length(idx.pqac),length(idx.pvac)) dQ_imag(idx.pqac,idx.pvac)];
 % A13   Edc (idx.pdc)
 A13 = [dP_real(idx.pqac,idx.pdc);
        dQ_real(idx.pqac,idx.pdc)];
@@ -223,7 +223,7 @@ A27 = [zeros(length(idx.pvac),length(idx.vscdc_pq));
 % A11   Ereal, Eimag (idx.pqac)
 A31 = [dP_real(idx.pdc,idx.pqac) dP_imag(idx.pdc,idx.pqac)];
 % A12   Q   ,angE (idx.pvac)
-A32 = [dP_real(idx.pdc,idx.pvac) dP_imag(idx.pdc,idx.pvac)];
+A32 = [zeros(length(idx.pdc),length(idx.pvac)) dP_imag(idx.pdc,idx.pvac)];
 % A13   Edc (idx.pdc)
 A33 = [dP_real(idx.pdc,idx.pdc)];
 % A14   Pdc (idx.vdc)
@@ -239,7 +239,7 @@ A37 = [dP_real(idx.pdc,idx.vscdc_pq)];
 % A11   Ereal, Eimag (idx.pqac)
 A41 = [dP_real(idx.vdc,idx.pqac) dP_imag(idx.vdc,idx.pqac)];
 % A12   Q   ,angE (idx.pvac)
-A42 = [dP_real(idx.vdc,idx.pvac) dP_imag(idx.vdc,idx.pvac)];
+A42 = [zeros(length(idx.vdc),length(idx.pvac)) dP_imag(idx.vdc,idx.pvac)];
 % A13   Edc (idx.pdc)
 A43 = [dP_real(idx.vdc,idx.pdc)];
 % A14   Pdc (idx.vdc)
@@ -277,32 +277,35 @@ A57 = [dP_symp_real(idx.vscac_pq,idx.vscdc_pq);
 %% VSC VdcQ_V
 % A61   Ereal, Eimag (idx.pqac)
 A61 = [dP_symp_real(idx.vscac_vq,idx.pqac) dP_symp_imag(idx.vscac_vq,idx.pqac);
-       dQ_symp_real(idx.vscac_vq,idx.pqac) dQ_symp_imag(idx.vscac_vq,idx.pqac)];
+        dQ_symp_real(idx.vscac_vq,idx.pqac) dQ_symp_imag(idx.vscac_vq,idx.pqac)];
 % A62   Q   ,angE (idx.pvac)
-A62 = [dP_symp_real(idx.vscac_vq,idx.pvac) dP_symp_imag(idx.vscac_vq,idx.pvac);
-       dQ_symp_real(idx.vscac_vq,idx.pvac) dQ_symp_imag(idx.vscac_vq,idx.pvac)];
+A62 = [zeros(length(idx.vscac_vq),length(idx.pvac)) dP_symp_imag(idx.vscac_vq,idx.pvac);
+       zeros(length(idx.vscac_vq),length(idx.pvac)) dQ_symp_imag(idx.vscac_vq,idx.pvac)];
+A22 = [dP_real(idx.pvac,idx.pvac) dP_imag(idx.pvac,idx.pvac);
+       dV_mag_real(idx.pvac,idx.pvac) dV_mag_imag(idx.pvac,idx.pvac)];
+   
 % A63   Edc (idx.pdc)
 index_vsc = repmat(idx.vscdc_vq,1,n_ph)';
 A63 = [dP_symp_real(index_vsc,idx.pdc).*repmat(t_inv,length(idx.vscdc_vq),1); %!!!! maybe x and y have to be swapped
-       dQ_symp_real(idx.vscac_vq,idx.pdc).*repmat(t_inv,length(idx.vscdc_vq),1)]; % ??
+        dQ_symp_real(idx.vscac_vq,idx.pdc).*repmat(t_inv,length(idx.vscdc_vq),1)]; % ??
 % A64   Pdc (idx.vdc)
 A64 = [zeros(length(idx.vscac_vq),length(idx.vdc));
        zeros(length(idx.vscac_vq),length(idx.vdc))];
 % A65   Ereal, Eimag (vscac_pq)
 A65 = [dP_symp_real(idx.vscac_vq,idx.vscac_pq) dP_symp_imag(idx.vscac_vq,idx.vscac_pq);
-       dQ_symp_real(idx.vscac_vq,idx.vscac_pq) dQ_symp_imag(idx.vscac_vq,idx.vscac_pq)];
+        dQ_symp_real(idx.vscac_vq,idx.vscac_pq) dQ_symp_imag(idx.vscac_vq,idx.vscac_pq)];
 % A66   Ereal, Eimag (vscac_vq)
 A66 = [dP_sym_real(idx.vscac_vq,idx.vscac_vq) dP_sym_imag(idx.vscac_vq,idx.vscac_vq);
-       dQ_sym_real(idx.vscac_vq,idx.vscac_vq) dQ_sym_imag(idx.vscac_vq,idx.vscac_vq)];
+         dQ_sym_real(idx.vscac_vq,idx.vscac_vq) dQ_sym_imag(idx.vscac_vq,idx.vscac_vq)];
 % A67   Edc (vscdc_p)
 A67 = [dP_symp_real(idx.vscac_vq,idx.vscdc_pq);
-       dQ_symp_real(idx.vscac_vq,idx.vscdc_pq)];
+        dQ_symp_real(idx.vscac_vq,idx.vscdc_pq)];
    
 %% Pdc vsc
 % A71   Ereal, Eimag (idx.pqac)
 A71 = [dP_real(idx.vscdc_pq,idx.pqac) dP_imag(idx.vscdc_pq,idx.pqac)];
 % A72   Q   ,angE (idx.pvac)
-A72 = [dP_real(idx.vscdc_pq,idx.pvac) dP_imag(idx.vscdc_pq,idx.pvac)];
+A72 = [zeros(length(idx.vscdc_pq),length(idx.pvac)) dP_imag(idx.vscdc_pq,idx.pvac)];
 % A73   Edc (idx.pdc)
 A73 = [dP_real(idx.vscdc_pq,idx.pdc)];
 % A74   Pdc (idx.vdc)
@@ -655,7 +658,7 @@ for id_x = 1:length(idxCtrl)
      u = [u1;u2;u3;u4;u5;u6;u7];
      x = linsolve(A,u);
    
-     %% Assemble real part of the  nodal voltage SCs
+     %% Assemble magnitude nodal voltage SCs
      % K{id_x,3}{ctrl_var,1}(idx.slack,1)       %Already good (not taken into account)
      K{id_x,3}{ctrl_var,1}(idx.pqac,1) =       x( 1: length(idx.pqac) ); 
      K{id_x,3}{ctrl_var,1}(idx.pvac,1) =       x( 2*length(idx.pqac) + 1 : 2*length(idx.pqac) + length(idx.pvac));
@@ -666,7 +669,7 @@ for id_x = 1:length(idxCtrl)
      K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =   x( 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) + 1 : 2*length(idx.pqac) + 2*length(idx.pvac) + length(idx.pdc) + length(idx.vdc) + 2*length(idx.vscac_pq) + 2*length(idx.vscac_vq) + length(idx.vscdc_pq) );
      % K{id_x,3}{ctrl_var,1}(idx.vscdc_pq,1) =  %Already good (not taken into account)
      
-     %% Assemble imag part of the nodal voltage SCs
+     %% Assemble phase-angle nodal voltage SCs
      % K{id_x,4}{ctrl_var,1}(idx.slack,1)       %Already good
      K{id_x,4}{ctrl_var,1}(idx.pqac,1) =     x( length(idx.pqac) + 1: 2*length(idx.pqac) ); 
      K{id_x,4}{ctrl_var,1}(idx.pvac,1) =     x( 2*length(idx.pqac) + length(idx.pvac) +1 : 2*length(idx.pqac) + 2*length(idx.pvac) ); 
@@ -679,11 +682,8 @@ for id_x = 1:length(idxCtrl)
 
      % Infer complex nodal voltage SCs 
      K{id_x,2}{ctrl_var,1}(:,1) = complex(K{id_x,3}{ctrl_var,1}(:,1) , K{id_x,4}{ctrl_var,1}(:,1)); %complex
-  
-     % Infer magnitude 
-     K{id_x,5}{ctrl_var,1}(:,1) = (1./abs(E)).*     real(conj(E).*K{id_x,2}{ctrl_var,1}(:,1)) ; %magnitude
      
-     % Infer phase angle
+     K{id_x,5}{ctrl_var,1}(:,1) = (1./abs(E)).*     real(conj(E).*K{id_x,2}{ctrl_var,1}(:,1)) ; %magnitude
      K{id_x,6}{ctrl_var,1}(:,1) = (1./(abs(E).^2)).*imag(conj(E).*K{id_x,2}{ctrl_var,1}(:,1)) ; % angle
      
      

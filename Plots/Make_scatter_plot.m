@@ -1,4 +1,4 @@
-function f = Make_scatter_plot(r,c,n_nodes,mode)
+function f = Make_scatter_plot(r,c,lf,j,n_nodes,mode)
 
 set(groot,'defaultFigureVisible','on')
 set(0, 'DefaultTextInterpreter', 'Latex')
@@ -31,8 +31,10 @@ set(0, 'DefaultAxesTickLabelInterpreter', 'Latex')
     hold on
     scatter(1:n_nodes,real(r),40,'fill')
     scatter(1:n_nodes,real(c),40,'fill')
+    scatter(1:n_nodes,real(lf),40,'fill')
+    scatter(1:n_nodes,real(j),40,'fill')
     ylabel('real part')
-    legend({'analytical sens coef','ground truth'}) %'analytic senc coef','inverse jacob',
+    legend({'analytical SC','EMTP','numerical LF','inverse J'}) %'analytic senc coef','inverse jacob',
     set(gca,'FontSize',15) 
     xticks(1:74)
     xticklabels(n_L)
@@ -52,6 +54,8 @@ set(0, 'DefaultAxesTickLabelInterpreter', 'Latex')
     hold on
     scatter(1:n_nodes,imag(r),40,'fill')
     scatter(1:n_nodes,imag(c),40,'fill')
+    scatter(1:n_nodes,imag(lf),40,'fill')
+    scatter(1:n_nodes,imag(j),40,'fill')
     ylabel('imaginary part')
     xticks(1:74)
     xticklabels(n_L)

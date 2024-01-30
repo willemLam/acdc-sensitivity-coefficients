@@ -8,8 +8,8 @@ function [Grid_para, linedata] = Get_YY(linedata_ac, linedata_dc , Grid_para, Fi
     Adc_b = Grid_para.Adc_b;
     n_AFE = Grid_para.n_AFE;
     n_ph = Grid_para.n_ph;
-    linedata_ac = 'linedata_AC.txt';
-    linedata_dc = 'linedata_DC.txt';
+%     linedata_ac = 'linedata_AC.txt';
+%     linedata_dc = 'linedata_DC.txt';
     %% Get Linedata ofthe AC and DC grid
     linedata_ac = load (linedata_ac);
     linedata_dc = load (linedata_dc);

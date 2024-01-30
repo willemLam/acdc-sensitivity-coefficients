@@ -11,12 +11,13 @@ function [Nodal_V_mag,Nodal_V_angle, Nodal_I_mag, Nodal_I_angle, Flow_I_mag, Flo
 %     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/GridV7.2all.mat'); 
 %     max_range = 10500;
 %% unbalanced
-    data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_balanced_7.mat'); %  balamced
+%     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_balanced_7.mat'); %  balamced
 %     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_unbalanced_8.mat'); % light unblance
 %     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_unbalanced_9.mat'); % very strong unblance
 %     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/Full_grid_AVG_noloss_unbalanced_10.mat'); % very strong unblance + filter
     
     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/SC_Full_grid_AVG_noloss_balanced_LCL_1.mat'); % balanced + filter
+%     data = load('/Users/willem/Documents/phd/State_estimation/EMTP/Experiments/SC_Full_grid_AVG_noloss_unbalanced_LCL_1.mat'); % unbalanced + filter
     
     
     max_range = floor(length(data.B01_Va_mag_control)/10)*10;

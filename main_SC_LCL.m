@@ -70,9 +70,30 @@ I_complex_LF = transpose(complex(Nodal_I_mag.*cos(Nodal_I_angle), Nodal_I_mag.*s
 Idc_LF = transpose(Idc_inj/2);
 
 % balanced
-modes = {'P23';'E22';'Q18'}%;'Q9';'P9'};
+modes = {'P23';'E22';'Q18';'Q9';'P9'};
+modes = {'P9';'Q9';'Q18';'E22';'P23'};
 % unbalaced
 % modes = {'P9';'Q9'};
+data = [];
+
+%% LF solution
+% Set the filter parameters
+Filter_para.R = 0*0.008*Y_b; %checked
+Filter_para.X = 0*0.04*Y_b;  %checked
+Filter_para.IGBT_piecewise = [  0                   0
+                                0.04926559627563	0.7
+                                2.30625399327864	0.8
+                                15.7793399043317	0.85
+                                107.547461516782	0.8999
+                                735.837403888342	0.9499
+                                1588.01477341768	0.9699];
+Filter_para.Exclude_losses = 1;
+% Initialize
+E_0 = [repmat([1; exp(-1i*pi*2/3);  exp(1i*pi*2/3) ], Grid_para.n_ac,1 ) ; ones(Grid_para.n_dc,1)];
+% Solve the PF
+tol = 1e-7;
+n_max = 100;
+
 
 
 for m=1:length(modes)
@@ -112,6 +133,10 @@ S_star = mean([transpose(complex(Nodal_P(z1,:), Nodal_Q(z1,:))); transpose(compl
 E_star2 = mean([V_complex_LF(:,z2); Vdc_LF(:,z2)],2);
 S_star2 = mean([transpose(complex(Nodal_P(z2,:), Nodal_Q(z2,:))); transpose(complex(Pdc_inj(z2,:),0))],2);
 
+[E,J,~] = NR_rectangularACDC_3ph_general(Grid_para,Filter_para,S_star,E_star,E_0,idx3,tol,n_max);
+[E2,J2,~] = NR_rectangularACDC_3ph_general(Grid_para,Filter_para,S_star2,E_star2,E_0,idx3,tol,n_max);
+
+Jinv = inv(J);
 %% Compute SC
 idxCtrl = 1:Grid_para.n_nodes; %estimate all voltage sensitivity coefficients
 [K, Time] = SC_voltage_rectangular(E_star,idx3,Grid_para,idxCtrl);
@@ -122,6 +147,8 @@ J_QR = zeros(Grid_para.n_nodes);
 J_QX = zeros(Grid_para.n_nodes);
 J_VR = zeros(Grid_para.n_nodes);
 J_VX = zeros(Grid_para.n_nodes);
+
+
 for k = 1:size(K,1)
     if( sum( K{k,1} == idx3.slack))
         continue
@@ -169,36 +196,70 @@ case 'P23'
     i = 71; 
     r = complex(J_PR(:,i),J_PX(:,i));
     c = (E_star-E_star2)/real(S_star(i)-S_star2(i));
+    lf = (E-E2)/real(S_star(i)-S_star2(i));
+    j_re = zeros(n_nodes,1);
+    j_re([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq;idx.vscdc_pq;idx.pdc]) = Jinv(1:67,127);
+    j_im = zeros(n_nodes,1);
+    j_im([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq]) = Jinv(68:end,127);
+    j = complex(j_re,j_im);
+    
     
 case 'E22'
     i = 70; 
     r = complex(J_VR(:,i),J_VX(:,i));
     c = (E_star-E_star2)/real(E_star(i)-E_star2(i));
+    lf = (E-E2)/real(E_star(i)-E_star2(i));
+    j_re = zeros(n_nodes,1);
+    j_re([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq;idx.vscdc_pq;idx.pdc]) = Jinv(1:67,104);
+    j_im = zeros(n_nodes,1);
+    j_im([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq]) = Jinv(68:end,104);
+    j = complex(j_re,j_im);
     
 case 'Q18'
     i = polyphase_indices(22,Grid_para.n_ph); %22
     r = complex(sum(J_QR(:,i),2),sum(J_QX(:,i),2));
     c = (E_star-E_star2)/imag(S_star(i(1))-S_star2(i(1)));
-
+    lf = (E-E2)/imag(S_star(i(1))-S_star2(i(1)));
+    j_re = zeros(n_nodes,1);
+    j_re([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq;idx.vscdc_pq;idx.pdc]) = Jinv(1:67,125);
+    j_im = zeros(n_nodes,1);
+    j_im([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq]) = Jinv(68:end,125);
+    j = complex(j_re,j_im);
+    
 case 'Q9'
     i = polyphase_indices(9,Grid_para.n_ph);
     r = complex(sum(J_QR(:,i),2),sum(J_QX(:,i),2));
-    c = (E_star-E_star2)/imag(S_star(i(1))-S_star2(i(1)));
-
+    c = (E_star-E_star2)/imag(mean(S_star(i(:))-S_star2(i(:))));
+    lf = (E-E2)/imag(mean(S_star(i(:))-S_star2(i(:))));
+    j_re = zeros(n_nodes,1);
+    j_re([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq;idx.vscdc_pq;idx.pdc]) = sum(Jinv(1:67,73:75),2);
+    j_im = zeros(n_nodes,1);
+    j_im([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq]) = sum(Jinv(68:end,73:75),2);
+    j = complex(j_re,j_im);
+    
     
 case 'P9'
     i = polyphase_indices(9,Grid_para.n_ph);
     r = complex(sum(J_PR(:,i),2),sum(J_PX(:,i),2));
-    c = (E_star-E_star2)/real(S_star(i(1))-S_star2(i(1)));
+    c = (E_star-E_star2)/real(mean(S_star(i(:))-S_star2(i(:))));
+    lf = (E-E2)/real(mean(S_star(i(:))-S_star2(i(:))));
+    j_re = zeros(n_nodes,1);
+    j_re([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq;idx.vscdc_pq;idx.pdc]) = sum(Jinv(1:67,22:24),2);
+    j_im = zeros(n_nodes,1);
+    j_im([idx.pqac;idx.pvac;idx.vscac_pq;idx.vscac_vq]) = sum(Jinv(68:end,22:24),2);
+    j = complex(j_re,j_im);
     
 end
 
 %% Make figure
-f = Make_scatter_plot(r,c,Grid_para.n_nodes,mode);
+f = Make_scatter_plot(r,c,lf,j,Grid_para.n_nodes,mode);
+
+data(m,:) = [mean((abs(r) - abs(c))), max((abs(r) - abs(c))), min((abs(r) - abs(c))) ] 
 
 %% Save plot
 % folder = './Plots/figures';
 % saveas(f,[folder filesep() strcat('SC_for_X_',mode)],'epsc');
 
 end
+
 
